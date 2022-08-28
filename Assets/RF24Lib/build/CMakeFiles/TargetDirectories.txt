@@ -1,0 +1,4 @@
+/home/jonas/Nextcloud/TUMHiWiStelle/TennisSchläger/RF24LinkTest/Assets/RF24Lib/build/CMakeFiles/RF24USBInterace.dir
+/home/jonas/Nextcloud/TUMHiWiStelle/TennisSchläger/RF24LinkTest/Assets/RF24Lib/build/CMakeFiles/RF24USBInteraceExec.dir
+/home/jonas/Nextcloud/TUMHiWiStelle/TennisSchläger/RF24LinkTest/Assets/RF24Lib/build/CMakeFiles/edit_cache.dir
+/home/jonas/Nextcloud/TUMHiWiStelle/TennisSchläger/RF24LinkTest/Assets/RF24Lib/build/CMakeFiles/rebuild_cache.dir

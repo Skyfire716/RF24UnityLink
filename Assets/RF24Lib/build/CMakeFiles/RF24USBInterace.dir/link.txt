@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -shared -Wl,-soname,libRF24USBInterace.so -o libRF24USBInterace.so CMakeFiles/RF24USBInterace.dir/UnityUSBInterface.cpp.o  /usr/lib/libusb-1.0.so 
