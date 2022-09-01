@@ -125,93 +125,6 @@ extern "C" int connectToUSBDecive(uint16_t idVendor, uint16_t idProduct){
     return r;
 }
 
-/*
-* l ibusb_device* find_usb_device(uint16_t idVendor, uint16_t idProd*uct){
-* int r;
-* printf("Init %u\n", libusb_init(NULL));
-* libusb_device* out = NULL;
-* int count = libusb_get_device_list(NULL, &devs);
-* int n = 0;
-* for(int i = 0; i < count; i++){
-*     struct libusb_device_descriptor desc;
-*     if ((r = libusb_get_device_descriptor(devs[i], &desc)) == 0) {
-*         if(desc.idVendor == idVendor && desc.idProduct == idProduct){
-*             out = libusb_ref_device(devs[i]);
-*             //out = devs[i];
-*             if(out){
-*                 printf("Dev in Main!\n");
-*                 if((r = libusb_get_active_config_descriptor(out, &cfg)) == 0){
-*                     printf("NumInter %u\n", cfg[0].bNumInterfaces);
-*                     printf("Interface AltSettings %u\n", cfg[0].interface[0].num_altsetting);
-*                     printf("Altetting %p\n", cfg[0].interface[0].altsetting);
-*                     printf("Altetting %p\n", cfg[0].interface[0].altsetting->bLength);
-*                     printf("Number of Endpoints %u\n", cfg[0].interface[0].altsetting->bNumEndpoints);
-*                     for(int l = 0; l < cfg[0].interface[0].altsetting->bNumEndpoints; l++){
-*                         if((cfg[0].interface[0].altsetting->endpoint[l].bEndpointAddress & LIBUSB_ENDPOINT_IN) == LIBUSB_ENDPOINT_IN){
-*                             printf("Found IN Endpoint! %u %u\n", cfg[0].interface[0].altsetting->endpoint[l].bmAttributes, LIBUSB_ENDPOINT_TRANSFER_TYPE_BULK);
-*                             inep = &(cfg[0].interface[0].altsetting->endpoint[l]);
-*                             }else{
-*                                 if((cfg[0].interface[0].altsetting->endpoint[l].bEndpointAddress & LIBUSB_ENDPOINT_OUT) == LIBUSB_ENDPOINT_OUT){
-*                                     printf("Found OUT Endpoint! %u %u\n", cfg[0].interface[0].altsetting->endpoint[l].bmAttributes, LIBUSB_ENDPOINT_TRANSFER_TYPE_BULK);   
-*                                     outep = &(cfg[0].interface[0].altsetting->endpoint[l]);
-*                                     }
-*                                     }
-*                                     }
-*                                     printf("Done\n");
-*                                     if((r = libusb_open(out, &dev_handle)) == 0){
-*                                         if((r = libusb_claim_interface(dev_handle, 0)) == 0){
-*                                             printf("Opened the dev handle\n");
-*                                             uint8_t buf[64];
-*                                             for(uint8_t i = 0; i < 64; i++){
-*                                                 buf[i] = i;
-*                                                 }
-*                                                 int buf_length = 64;
-*                                                 int transfered_Bytes;
-*                                                 printf("wMaxPacketSize %u\n", outep->wMaxPacketSize);
-*                                                 int r;
-*                                                 if((r = libusb_bulk_transfer(dev_handle, outep->bEndpointAddress, buf, buf_length, &transfered_Bytes, TIMEOUT)) == 0){
-*                                                     printf("Bulk Transfered %u\n", transfered_Bytes);
-*                                                     if((r = libusb_bulk_transfer(dev_handle, inep->bEndpointAddress, buf, buf_length, &transfered_Bytes, TIMEOUT)) == 0){
-*                                                         printf("Read %u Bytes\n", transfered_Bytes);
-*                                                         for(int z = 0; z < transfered_Bytes; z++){
-*                                                             printf("%u, ", buf[z]);
-*                                                             }
-*                                                             printf("\n");
-*                                                             }else{
-*                                                                 printf("Bulk Read Error %s\n", libusb_error_name(r));                                    
-*                                                                 }
-*                                                                 }else{
-*                                                                     printf("Bulk Write Error %s\n", libusb_error_name(r));
-*                                                                     }
-*                                                                     if((r = libusb_release_interface(dev_handle, 0)) == 0){
-*                                                                         
-*                                                                         }else{
-*                                                                             printf("Release Handle Error %s\n", libusb_error_name(r));
-*                                                                             }
-*                                                                             libusb_close(dev_handle);
-*                                                                             }else{
-*                                                                                 printf("Claim Interface Error %s\n", libusb_error_name(r));
-*                                                                                 }
-*                                                                                 libusb_free_config_descriptor(cfg);
-*                                                                                 }else{
-*                                                                                     printf("Device Open Error %s\n", libusb_error_name(r));
-*                                                                                     }
-*                                                                                     }else{
-*                                                                                         printf("Config Error %s\n", libusb_error_name(r));
-*                                                                                         }
-*                                                                                         }
-*                                                                                         i = count;
-*                                                                                         }
-*                                                                                         }else{
-*                                                                                             printf("Device Descriptor Error %s\n", libusb_error_name(r));
-*                                                                                             }
-*                                                                                             }
-*                                                                                             libusb_free_device_list(devs, 1);
-*                                                                                             libusb_exit(NULL);
-*                                                                                             return out;
-*                                                                                             }
-*/
-
 extern "C" void get_usb_devices(char *out){
     if(!running || !usbinit){
         return;
@@ -294,7 +207,7 @@ extern "C" int run(){
 
 extern "C" int main(){
     printf("Hello World!\n");
-    run();
+    //run();
     //char out[2049];
     //get_usb_devices(out);
     //printf("%s", out);

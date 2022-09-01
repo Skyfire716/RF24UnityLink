@@ -30,5 +30,11 @@ public class RF24Editor : Editor
         if(GUILayout.Button("Communicate")){
             myrf24.talkToRP2040();
         }
+        if(GUILayout.Button("BeginRF24")){
+            myrf24.RF24Begin();
+        }
+        if(GUILayout.Button("ToggleRole")){
+            myrf24.toggleRole();
+        }
     }
 }
