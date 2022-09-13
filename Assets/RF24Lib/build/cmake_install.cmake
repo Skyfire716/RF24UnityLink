@@ -1,4 +1,4 @@
-# Install script for directory: /home/jonas/Nextcloud/TUMHiWiStelle/TennisSchläger/RF24LinkTest/Assets/RF24Lib
+# Install script for directory: /home/jonas/Tennisschlaeger/RF24UnityLink/Assets/RF24Lib
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/jonas/Nextcloud/TUMHiWiStelle/TennisSchläger/RF24LinkTest/Assets/RF24Lib/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/jonas/Tennisschlaeger/RF24UnityLink/Assets/RF24Lib/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

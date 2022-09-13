@@ -3,13 +3,14 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.12)
 
 project(pico_examples C CXX ASM)
 
+SET(WINDOWS_EXPORT_ALL_SYMBOLS)
 SET(mylibSRCS UnityUSBInterface.cpp)
-
+    
 find_path(LIBUSB_INCLUDE_DIR
-  NAMES libusb.h
+    NAMES libusb.h
     PATH_SUFFIXES "include" "libusb" "libusb-1.0")
 find_library(LIBUSB_LIBRARY
-  NAMES usb-1.0
+    NAMES usb-1.0
     PATH_SUFFIXES "lib" "lib64"
     HINTS "${LIBUSB_INCLUDE_DIR}")
 

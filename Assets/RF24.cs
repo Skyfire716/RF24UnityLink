@@ -41,12 +41,12 @@ public class RF24 : MonoBehaviour
     
     public String[] devices;
     
-    protected readonly byte BYTEARRAYTRANSFER = 0x00;
-    protected readonly byte BYTEARRAYTRANSFERSINLGE = 0x01;
-    protected readonly byte SETCEPIN = 0x02;
-    protected readonly byte SETCSNPIN = 0x03;
+    protected readonly byte BYTEARRAYTRANSFER = 0xAA;
+    protected readonly byte BYTEARRAYTRANSFERSINLGE = 0xBB;
+    protected readonly byte SETCEPIN = 0xCC;
+    protected readonly byte SETCSNPIN = 0xDD;
     
-    private RF24Com rf24 = new RF24Com(0);
+    private RF24Com rf24;
     
     // Start is called before the first frame update
     void Start()
@@ -130,7 +130,7 @@ public class RF24 : MonoBehaviour
     
     public bool connectToCustomUSBDevice(ushort idVendor, ushort idProduct){
         int ret = connectToUSBDecive(idVendor, idProduct);
-        Debug.Log("Connected to Device? " + ret);
+        Debug.Log("Connected to Device? " + (ret == 0));
         return ret == 0;
     }
     
@@ -154,8 +154,30 @@ public class RF24 : MonoBehaviour
         int bytesOut;
         int bytesIn;
         usbTransfer(outBuf, bufferLengths, out bytesOut, inBuf, bufferLengths, out bytesIn);
+        if(Application.isEditor){
+            float now = Time.realtimeSinceStartup * 1000 * 1000;
+            while(Time.realtimeSinceStartup * 1000 * 1000 - now < 5){
+                
+            }
+        }else if(Application.isPlaying){
+            float now = Time.time * 1000 * 1000;
+            while(Time.time * 1000 * 1000 - now < 5){
+                
+            }
+        }
     }
     
+    public static string ByteArrayToString(byte[] ba)
+    {
+    StringBuilder hex = new StringBuilder(ba.Length * 2);
+    int i = 0;
+    foreach (byte b in ba){
+        hex.Append("," + i++ + ": 0x");
+        hex.AppendFormat("{0:X2}", b);
+    }
+    return hex.ToString();
+    }
+
     public Tuple<byte, byte[]> transferByteArrays(byte reg, byte[] dataout){
         byte bufferLengths = 64;
         byte[] inBuf = new byte[bufferLengths];
@@ -167,12 +189,15 @@ public class RF24 : MonoBehaviour
                 outBuf[i + 1] = dataout[i];
             }
             outBuf[63] = BYTEARRAYTRANSFER;
+            outBuf[62] = (byte) (dataout.Length + 1);
         }
         outBuf[0] = reg;
         int bytesOut;
         int bytesIn;
         usbTransfer(outBuf, bufferLengths, out bytesOut, inBuf, bufferLengths, out bytesIn);
         Debug.Log("Wrote: " + bytesOut + " Bytes\tRead: " + bytesIn + " Bytes");
+        Debug.Log("Wrote: " + ByteArrayToString(outBuf));
+        Debug.Log("Read: " + ByteArrayToString(inBuf));
         byte[] dataOut = new byte[dataout.Length];
         for(int i = 0; i < dataout.Length; i++){
             dataout[i] = inBuf[i + 1];
@@ -229,6 +254,7 @@ public class RF24 : MonoBehaviour
     
     public void RF24Begin(){
         rfSetup = true;
+        rf24 = new RF24Com(0);
         rf24.SPIByteArrayTransfer += new RF24Com.SPITransferByteArraysCallbackHandler(transferByteArrays);
         rf24.SetCEPin += new RF24Com.SetPin(setCEPin);
         rf24.SetCSNPin += new RF24Com.SetPin(setCSNPin);
@@ -487,11 +513,12 @@ public class RF24 : MonoBehaviour
             //beginTransaction();
             //status = _SPI.transfer(R_REGISTER | reg);
             //result = _SPI.transfer(0xff);
-            //endTransaction();
+            
             //status = SPItransfer((byte)(R_REGISTER | reg));
             //result = SPItransfer(0xFF);
             Tuple<byte, byte[]> t = SPIByteArrayTransfer((byte)(R_REGISTER | reg), Enumerable.Repeat((byte)0xFF, 1).ToArray());
             status = t.Item1;
+            //endTransaction();
             return t.Item2[0];
         }
         
@@ -521,20 +548,23 @@ public class RF24 : MonoBehaviour
             if (is_cmd_only) {
                 //beginTransaction();
                 //status = _SPI.transfer(W_REGISTER | reg);
-                //endTransaction();
+                ////endTransaction();
                 //status = SPItransfer((byte)(W_REGISTER | reg));
                 Tuple<byte, byte[]> t = SPIByteArrayTransfer((byte)(W_REGISTER | reg), Array.Empty<byte>());
+                //endTransaction();
                 status = t.Item1;
             }
             else {
                 //beginTransaction();
                 //status = _SPI.transfer(W_REGISTER | reg);
                 //_SPI.transfer(value);
-                //endTransaction();
+                ////endTransaction();
                 //status = SPItransfer((byte)(W_REGISTER | reg));
                 //SPItransfer(value);
                 
                 Tuple<byte, byte[]> t = SPIByteArrayTransfer((byte)(W_REGISTER | reg), new byte[]{value});
+                //endTransaction();
+                //Tuple<byte, byte[]> t = SPIByteArrayTransfer((byte)(reg), new byte[]{value});
                 status = t.Item1;
             }
         }
@@ -567,7 +597,7 @@ public class RF24 : MonoBehaviour
             //while (blank_len--) {
             //    _SPI.transfer(0);
             //}
-            //endTransaction();
+            ////endTransaction();
             //status = SPItransfer(writeType);
             //int i = 0;
             //while (data_len-- > 0) {
@@ -581,6 +611,7 @@ public class RF24 : MonoBehaviour
             Array.Copy(current, outBuf, data_len);
             Array.Copy(Enumerable.Repeat((byte)0x00, blank_len).ToArray(), 0, outBuf, data_len, blank_len);
             Tuple<byte, byte[]> t = SPIByteArrayTransfer(writeType, outBuf);
+            //endTransaction();
             status = t.Item1;
         }
         
@@ -611,7 +642,7 @@ public class RF24 : MonoBehaviour
             //while (blank_len--) {
             //    _SPI.transfer(0xff);
             //}
-            //endTransaction();
+            ////endTransaction();
             
             /*
              *             s tatus = SPItransfe*r(R_RX*_PAYLOAD);
@@ -627,6 +658,7 @@ public class RF24 : MonoBehaviour
             Tuple<byte, byte[]> t = SPIByteArrayTransfer(R_RX_PAYLOAD, Enumerable.Repeat((byte)0xFF, 32).ToArray());
             status = t.Item1;
             Array.Copy(t.Item2, current, data_len);
+            //endTransaction();
         }
         
         
@@ -757,7 +789,17 @@ public class RF24 : MonoBehaviour
             // WARNING: Delay is based on P-variant whereby non-P *may* require different timing.
             
             //delay(5);
-            
+            if(Application.isEditor){
+                float now = Time.realtimeSinceStartup * 1000;
+                while(Time.realtimeSinceStartup * 1000 - now < 5){
+                    
+                }
+            }else if(Application.isPlaying){
+                float now = Time.time * 1000;
+                while(Time.time * 1000 - now < 5){
+                    
+                }
+            }
             // Set 1500uS (minimum for 32B payload in ESB@250KBPS) timeouts, to make testing a little easier
             // WARNING: If this is ever lowered, either 250KBS mode with AA is broken or maximum packet
             // sizes must never be used. See datasheet for a more complete explanation.
@@ -773,6 +815,8 @@ public class RF24 : MonoBehaviour
             byte before_toggle = read_register(FEATURE);
             toggle_features();
             byte after_toggle = read_register(FEATURE);
+            Debug.Log("Before Toggle: " + String.Format("{0:X}", before_toggle));
+            Debug.Log("After Toggle: " + String.Format("{0:X}", after_toggle));
             _is_p_variant = before_toggle == after_toggle;
             if (after_toggle == 1) {
                 if (_is_p_variant) {
@@ -785,7 +829,10 @@ public class RF24 : MonoBehaviour
             ack_payloads_enabled = false; // ack hardwarepayloads disabled by default
             write_register(DYNPD, 0, false);     // disable dynamic payloads by default (for all pipes)
             dynamic_payloads_enabled = false;
+            Debug.Log("Write EN_AA");
             write_register(EN_AA, 0x3F, false);  // enable auto-ack on all pipes
+            read_register(EN_AA);
+            Debug.Log("END EN_AA");
             write_register(EN_RXADDR, 3, false); // only open RX pipes 0 & 1
             setPayloadSize(32);           // set static payload size to 32 (max) bytes by default
             setAddressWidth(5);           // set default address length to (max) 5 bytes
@@ -1570,7 +1617,9 @@ public class RF24 : MonoBehaviour
         
         void setRetries(byte delay, byte count)
         {
+            Debug.Log("Wrote: " + (byte)(Mathf.Min(15, delay) << ARD | Mathf.Min(15, count)) + " to " + SETUP_RETR);
             write_register(SETUP_RETR, (byte)(Mathf.Min(15, delay) << ARD | Mathf.Min(15, count)), false);
+            Debug.Log("Read: " + String.Format("{0:X}", read_register(SETUP_RETR)));
         }
         
         

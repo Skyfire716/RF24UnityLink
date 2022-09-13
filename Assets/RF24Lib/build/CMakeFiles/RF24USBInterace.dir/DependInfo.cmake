@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/jonas/Nextcloud/TUMHiWiStelle/TennisSchläger/RF24LinkTest/Assets/RF24Lib/UnityUSBInterface.cpp" "CMakeFiles/RF24USBInterace.dir/UnityUSBInterface.cpp.o" "gcc" "CMakeFiles/RF24USBInterace.dir/UnityUSBInterface.cpp.o.d"
+  "/home/jonas/Tennisschlaeger/RF24UnityLink/Assets/RF24Lib/UnityUSBInterface.cpp" "CMakeFiles/RF24USBInterace.dir/UnityUSBInterface.cpp.o" "gcc" "CMakeFiles/RF24USBInterace.dir/UnityUSBInterface.cpp.o.d"
   )
 
 # Targets to which this target links.

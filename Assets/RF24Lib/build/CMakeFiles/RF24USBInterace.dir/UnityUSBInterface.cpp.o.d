@@ -1,5 +1,5 @@
 CMakeFiles/RF24USBInterace.dir/UnityUSBInterface.cpp.o: \
- /home/jonas/Nextcloud/TUMHiWiStelle/TennisSchläger/RF24LinkTest/Assets/RF24Lib/UnityUSBInterface.cpp \
+ /home/jonas/Tennisschlaeger/RF24UnityLink/Assets/RF24Lib/UnityUSBInterface.cpp \
  /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/bits/libc-header-start.h /usr/include/features.h \
  /usr/include/features-time64.h /usr/include/bits/wordsize.h \

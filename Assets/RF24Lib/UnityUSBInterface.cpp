@@ -210,8 +210,8 @@ extern "C" int main(){
     //run();
     //char out[2049];
     //get_usb_devices(out);
-    //printf("%s", out);
-    //find_usb_device(0x0000, 0x0001);
+    //printf("%s\n", out);
+    //printf("Connected? %u\n", connectToUSBDecive(0x0000, 0x0001));
     return 0;
 }
 
