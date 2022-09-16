@@ -36,5 +36,8 @@ public class RF24Editor : Editor
         if(GUILayout.Button("ToggleRole")){
             myrf24.toggleRole();
         }
+        if(GUILayout.Button("PrintPretty")){
+            myrf24.printPretty();
+        }
     }
 }
