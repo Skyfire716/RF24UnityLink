@@ -11,335 +11,6 @@ using UnityEditor;
 
 public class RF24 : MonoBehaviour
 {
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void PlugInCallBack(ushort idVendor, ushort idProduct, bool eventb);
-    
-    #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-    [DllImport ("Assets/RF24Lib/build/libRF24USBInterace.so")]
-    private static extern void setPlugCallBack(PlugInCallBack func);
-    [DllImport ("Assets/RF24Lib/build/libRF24USBInterace.so")]
-    private static extern int usbTransfer(byte[] outBuf, byte outBufLength, out int bytesOut, byte[] inBuf, byte inBufLength, out int bytesIn);
-    [DllImport ("Assets/RF24Lib/build/libRF24USBInterace.so")]
-    private static extern int connectToUSBDecive(ushort idVendor, ushort idProduct);
-    [DllImport ("Assets/RF24Lib/build/libRF24USBInterace.so")]
-    private static extern void get_usb_devices(StringBuilder dst);
-    [DllImport ("Assets/RF24Lib/build/libRF24USBInterace.so")]
-    private static extern void stop();
-    [DllImport ("Assets/RF24Lib/build/libRF24USBInterace.so")]
-    private static extern int run();
-    #endif
-    
-    #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-    
-    #endif
-    
-    private Thread usbRunnerThread;
-    
-    private Thread commThread;
-    
-    private PlugInCallBack callbackPointer;
-    
-    private int counter = 0;
-    
-    public String[] devices;
-    
-    protected readonly byte BYTEARRAYTRANSFER = 0xAA;
-    protected readonly byte BYTEARRAYTRANSFERSINLGE = 0xBB;
-    protected readonly byte SETCEPIN = 0xCC;
-    protected readonly byte SETCSNPIN = 0xDD;
-    
-    public bool toggle = false;
-    protected bool running = true;
-    
-    private RF24Com rf24;
-    
-    // Start is called before the first frame update
-    void Start()
-    {
-        Debug.Log("RF24 Start");
-        StartUSBService();
-        setHotPlugCallback();
-        //Debug.Log("Main returns: " + main());
-        //StringBuilder sb = new StringBuilder (1024);
-        //get_usb_devices(sb);
-        //Debug.Log("Devices? " + sb.ToString());
-    }
-    
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
-    
-    void OnDestroy(){
-        Debug.Log("Stopping USB");
-        stopUSBService();
-    }
-    
-    public void setHotPlugCallback(){
-        callbackPointer = USBHotPlugCallback;
-        setPlugCallBack(callbackPointer);
-    }
-    
-    public void StartUSBService(){
-        if(usbRunnerThread != null){
-            usbRunnerThread.Abort();
-        }
-        usbRunnerThread = new Thread(keepUSBFunctionalityAlive);
-        usbRunnerThread.Start();
-        Debug.Log("Started USB Runner Thread");
-    }
-    
-    public void ReadUSBDevices(){
-        StringBuilder sb = new StringBuilder (8192);
-        get_usb_devices(sb);
-        Debug.Log("Devices? " + sb.ToString());
-        string[] subs = sb.ToString().Split('\n');
-        devices = subs;
-    }
-    
-    public void stopUSBService(){
-        Debug.Log("Stop Runner Thread");
-        rfSetup = false;
-        running = false;
-        stop();
-        Debug.Log("Runnter Thread should Stop");
-    }
-    
-    public bool connectToCustomUSBDevice(ushort idVendor, ushort idProduct){
-        int ret = connectToUSBDecive(idVendor, idProduct);
-        Debug.Log("Connected to Device? " + (ret == 0));
-        return ret == 0;
-    }
-    
-    public void setCEPin(byte status){
-        byte bufferLengths = 64;
-        byte[] inBuf = new byte[bufferLengths];
-        byte[] outBuf = new byte[bufferLengths];
-        outBuf[63] = SETCEPIN;
-        outBuf[0] = status;
-        int bytesOut;
-        int bytesIn;
-        usbTransfer(outBuf, bufferLengths, out bytesOut, inBuf, bufferLengths, out bytesIn);
-    }
-    
-    public void setCSNPin(byte status){
-        byte bufferLengths = 64;
-        byte[] inBuf = new byte[bufferLengths];
-        byte[] outBuf = new byte[bufferLengths];
-        outBuf[63] = SETCSNPIN;
-        outBuf[0] = status;
-        int bytesOut;
-        int bytesIn;
-        usbTransfer(outBuf, bufferLengths, out bytesOut, inBuf, bufferLengths, out bytesIn);
-        if(Application.isEditor){
-            float now = Time.realtimeSinceStartup * 1000 * 1000;
-            while(Time.realtimeSinceStartup * 1000 * 1000 - now < 5){
-                
-            }
-        }else if(Application.isPlaying){
-            float now = Time.time * 1000 * 1000;
-            while(Time.time * 1000 * 1000 - now < 5){
-                
-            }
-        }
-    }
-    
-    public static string ByteArrayToString(byte[] ba)
-    {
-        StringBuilder hex = new StringBuilder(ba.Length * 2);
-        int i = 0;
-        foreach (byte b in ba){
-            hex.Append("," + i++ + ": 0x");
-            hex.AppendFormat("{0:X2}", b);
-        }
-        return hex.ToString();
-    }
-    
-    public Tuple<byte, byte[]> transferByteArrays(byte reg, byte[] dataout){
-        byte bufferLengths = 64;
-        byte[] inBuf = new byte[bufferLengths];
-        byte[] outBuf = new byte[bufferLengths];
-        if(dataout.Length == 0){
-            outBuf[63] = BYTEARRAYTRANSFERSINLGE;
-        }else{
-            for(int i = 0; i < dataout.Length; i++){
-                outBuf[i + 1] = dataout[i];
-            }
-            outBuf[63] = BYTEARRAYTRANSFER;
-            outBuf[62] = (byte) (dataout.Length + 1);
-        }
-        outBuf[0] = reg;
-        int bytesOut;
-        int bytesIn;
-        usbTransfer(outBuf, bufferLengths, out bytesOut, inBuf, bufferLengths, out bytesIn);
-        //Debug.Log("Wrote: " + bytesOut + " Bytes\tRead: " + bytesIn + " Bytes");
-        //Debug.Log("Wrote: " + ByteArrayToString(outBuf));
-        //Debug.Log("Read: " + ByteArrayToString(inBuf));
-        byte[] dataOut = new byte[dataout.Length];
-        for(int i = 0; i < dataout.Length; i++){
-            dataout[i] = inBuf[i + 1];
-        }
-        return Tuple.Create(inBuf[0], dataout);
-    }
-    
-    public void talkToRP2040(){
-        byte[] outBuf = new byte[64];
-        for(int i = 0; i < 64; i++){
-            outBuf[i] = (byte) i;
-        }
-        byte outBufLength = 64;
-        int bytesOut;
-        byte[] inBuf = new byte[64];
-        byte inBufLength = 64;
-        int bytesIn;
-        usbTransfer(outBuf, outBufLength, out bytesOut, inBuf, inBufLength, out bytesIn);
-        Debug.Log("Wrote " + bytesOut + " bytes");
-        Debug.Log("Read " + bytesIn + " bytes");
-    }
-    
-    void keepUSBFunctionalityAlive(){
-        int returnValue = 0;
-        try{
-            returnValue = run();
-        }catch(Exception e){
-            Debug.LogException(e, this);
-        }
-        Debug.Log("LibUSB Run Thread finished with RetVal: " + returnValue);
-    }
-    
-    void commVoid(){
-        return;
-        payload = 5.34f;
-        while(running){
-            if(rfSetup){
-                if (role) {
-                    // This device is a TX node
-                    
-                    Debug.LogWarning("Before Writing " + payload);
-                    DateTime start = DateTime.Now;
-                    foreach(byte b in BitConverter.GetBytes(payload)){
-                        Debug.LogWarning(String.Format("{0:X2}", b));
-                    }
-                    bool report = rf24.write(BitConverter.GetBytes(payload), 4);  // transmit & save the report
-                    DateTime end = DateTime.Now;
-                    Debug.LogWarning("After Running " +report);
-                    
-                    if (report) {
-                        Debug.Log("Transmission successful! ");
-                        Debug.Log("Transmission successful! ");  // payload was delivered
-                        Debug.Log("Time to transmit = " + (new TimeSpan(end.Ticks - start.Ticks)).TotalMilliseconds + " us. Sent: " + payload);  // print payload sent
-                        payload += 0.01f;          // increment float payload
-                    } else {
-                        Debug.Log("Transmission failed or timed out");  // payload was not delivered
-                    }
-                } else {
-                    // This device is a RX node
-                    
-                    byte pipe = 0;
-                    if (rf24.available(ref pipe)) {              // is there a payload? get the pipe number that recieved it
-                        byte bytes = rf24.getPayloadSize();  // get the size of the payload
-                        byte[] payloadBuf = BitConverter.GetBytes(payload);
-                        rf24.read(ref payloadBuf, bytes);             // fetch payload from FIFO
-                        payload = BitConverter.ToSingle(payloadBuf);
-                        Debug.Log("Received " + bytes +" bytes on pipe " + pipe + ": " +payload);  // print the payload's value
-                    }else{
-                        Debug.Log("No Receive");
-                    }
-                }  // role
-            }else{
-                Debug.Log("RF Setup not set");
-            }
-            if(toggle){
-                toggle = false;
-                if(!role){
-                    role = true;
-                    Debug.Log("*** CHANGING TO TRANSMIT ROLE -- PRESS 'R' TO SWITCH BACK");
-                    rf24.stopListening();
-                } else{
-                    role = false;
-                    Debug.Log("*** CHANGING TO RECEIVE ROLE -- PRESS 'T' TO SWITCH BACK");
-                    rf24.startListening();
-                }
-            }
-        }
-        Debug.Log("Comm End");
-    }
-    
-    static void USBHotPlugCallback(ushort idVendor, ushort idProduct, bool eventb){
-        Debug.Log("Device: 0x" + idVendor.ToString("X4") + ":0x" + idProduct.ToString("X4") + " changed " + (eventb ? "Arrived" : "Left"));
-    }
-    
-    
-    byte[][] address = new byte[][]{new byte[]{0x00, 0x00, 0x00, 0x31, 0x4E, 0x6F, 0x64, 0x65}, new byte[]{0x00, 0x00, 0x00, 0x32, 0x4E, 0x6F, 0x64, 0x65}};
-    // It is very helpful to think of an address as a path instead of as
-    // an identifying device destination
-    
-    // to use different addresses on a pair of radios, we need a variable to
-    // uniquely identify which address this radio will use to transmit
-    bool radioNumber = true;  // 0 uses address[0] to transmit, 1 uses address[1] to transmit
-    
-    // Used to control whether this node is sending or receiving
-    bool role = false;  // true = TX role, false = RX role
-    
-    // For this example, we'll be using a payload containing
-    // a single float number that will be incremented
-    // on every successful transmission
-    float payload = 0.0f;
-    bool rfSetup = false;
-    
-    public void RF24Begin(){
-        rfSetup = true;
-        rf24 = new RF24Com(0);
-        rf24.SPIByteArrayTransfer += new RF24Com.SPITransferByteArraysCallbackHandler(transferByteArrays);
-        rf24.SetCEPin += new RF24Com.SetPin(setCEPin);
-        rf24.SetCSNPin += new RF24Com.SetPin(setCSNPin);
-        rf24.begin();
-        Debug.Log("Is Chip Connected? " + rf24.isChipConnected());
-        rf24.setPALevel(RF24Com.rf24_pa_dbm_e.RF24_PA_LOW, true);  // RF24_PA_MAX is default.
-        
-        // save on transmission time by setting the radio to only transmit the
-        // number of bytes we need to transmit a float
-        rf24.setPayloadSize(4);  // float datatype occupies 4 bytes
-        
-        // set the TX address of the RX node into the TX pipe
-        rf24.openWritingPipe(address[radioNumber ? 0 : 1]);  // always uses pipe 0
-        
-        // set the RX address of the TX node into a RX pipe
-        rf24.openReadingPipe(1, BitConverter.ToUInt64(address[!radioNumber ? 0 : 1], 0));  // using pipe 1
-        
-        // additional setup specific to the node's role
-        if (role) {
-            Debug.Log("Call Stop Listening");
-            rf24.stopListening();  // put radio in TX mode
-        } else {
-            Debug.Log("Call Start Listening");
-            rf24.startListening();  // put radio in RX mode
-        }
-        /*
-        if(commThread != null){
-            commThread.Abort();
-        }
-        running = true;
-        commThread = new Thread(commVoid);
-        commThread.Start();
-        Debug.Log("Started Comm Runner Thread");
-        */
-        
-    }
-    //     
-    public void toggleRole(){
-        Debug.Log("Toggle");
-        toggle = true;
-    }
-    
-    
-    
-    
-    public void printPretty(){
-        rf24.printDetails();
-        rf24.printPretty();
-    }
     
     
     
@@ -352,10 +23,6 @@ public class RF24 : MonoBehaviour
     
     
     
-    
-    
-    
-    public class RF24Com{
         
         /*
          *  Copyright (c) 2007 Stefan Engelke <mbox@stefanengelke.de>
@@ -577,8 +244,156 @@ public class RF24 : MonoBehaviour
         public delegate Tuple<byte, byte[]> SPITransferByteArraysCallbackHandler(byte reg, byte[] dataout);
         public event SPITransferByteArraysCallbackHandler SPIByteArrayTransfer;
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+         /*
+    byte[][] address = new byte[][]{new byte[]{0x00, 0x00, 0x00, 0x31, 0x4E, 0x6F, 0x64, 0x65}, new byte[]{0x00, 0x00, 0x00, 0x32, 0x4E, 0x6F, 0x64, 0x65}};
+    // It is very helpful to think of an address as a path instead of as
+    // an identifying device destination
+    
+    // to use different addresses on a pair of radios, we need a variable to
+    // uniquely identify which address this radio will use to transmit
+    bool radioNumber = true;  // 0 uses address[0] to transmit, 1 uses address[1] to transmit
+    
+    // Used to control whether this node is sending or receiving
+    bool role = false;  // true = TX role, false = RX role
+    
+    // For this example, we'll be using a payload containing
+    // a single float number that will be incremented
+    // on every successful transmission
+    float payload = 0.0f;
+    bool rfSetup = false;
+    
+    public void RF24Begin(){
+        rfSetup = true;
+        rf24 = new RF24(0);
+        rf24.SPIByteArrayTransfer += new RF24.SPITransferByteArraysCallbackHandler(transferByteArrays);
+        rf24.SetCEPin += new RF24.SetPin(setCEPin);
+        rf24.SetCSNPin += new RF24.SetPin(setCSNPin);
+        rf24.begin();
+        Debug.Log("Is Chip Connected? " + rf24.isChipConnected());
+        rf24.setPALevel(RF24.rf24_pa_dbm_e.RF24_PA_LOW, true);  // RF24_PA_MAX is default.
+        
+        // save on transmission time by setting the radio to only transmit the
+        // number of bytes we need to transmit a float
+        rf24.setPayloadSize(4);  // float datatype occupies 4 bytes
+        
+        // set the TX address of the RX node into the TX pipe
+        rf24.openWritingPipe(address[radioNumber ? 0 : 1]);  // always uses pipe 0
+        
+        // set the RX address of the TX node into a RX pipe
+        rf24.openReadingPipe(1, BitConverter.ToUInt64(address[!radioNumber ? 0 : 1], 0));  // using pipe 1
+        
+        // additional setup specific to the node's role
+        if (role) {
+            Debug.Log("Call Stop Listening");
+            rf24.stopListening();  // put radio in TX mode
+        } else {
+            Debug.Log("Call Start Listening");
+            rf24.startListening();  // put radio in RX mode
+        }
+        /*
+        if(commThread != null){
+            commThread.Abort();
+        }
+        running = true;
+        commThread = new Thread(commVoid);
+        commThread.Start();
+        Debug.Log("Started Comm Runner Thread");
+        
+}
+        
+    void commVoid(){
+        return;
+        payload = 5.34f;
+        while(running){
+            if(rfSetup){
+                if (role) {
+                    // This device is a TX node
+                    
+                    Debug.LogWarning("Before Writing " + payload);
+                    DateTime start = DateTime.Now;
+                    foreach(byte b in BitConverter.GetBytes(payload)){
+                        Debug.LogWarning(String.Format("{0:X2}", b));
+                    }
+                    bool report = rf24.write(BitConverter.GetBytes(payload), 4);  // transmit & save the report
+                    DateTime end = DateTime.Now;
+                    Debug.LogWarning("After Running " +report);
+                    
+                    if (report) {
+                        Debug.Log("Transmission successful! ");
+                        Debug.Log("Transmission successful! ");  // payload was delivered
+                        Debug.Log("Time to transmit = " + (new TimeSpan(end.Ticks - start.Ticks)).TotalMilliseconds + " us. Sent: " + payload);  // print payload sent
+                        payload += 0.01f;          // increment float payload
+                    } else {
+                        Debug.Log("Transmission failed or timed out");  // payload was not delivered
+                    }
+                } else {
+                    // This device is a RX node
+                    
+                    byte pipe = 0;
+                    if (rf24.available(ref pipe)) {              // is there a payload? get the pipe number that recieved it
+                        byte bytes = rf24.getPayloadSize();  // get the size of the payload
+                        byte[] payloadBuf = BitConverter.GetBytes(payload);
+                        rf24.read(ref payloadBuf, bytes);             // fetch payload from FIFO
+                        payload = BitConverter.ToSingle(payloadBuf);
+                        Debug.Log("Received " + bytes +" bytes on pipe " + pipe + ": " +payload);  // print the payload's value
+                    }else{
+                        Debug.Log("No Receive");
+                    }
+                }  // role
+            }else{
+                Debug.Log("RF Setup not set");
+            }
+            if(toggle){
+                toggle = false;
+                if(!role){
+                    role = true;
+                    Debug.Log("*** CHANGING TO TRANSMIT ROLE -- PRESS 'R' TO SWITCH BACK");
+                    rf24.stopListening();
+                } else{
+                    role = false;
+                    Debug.Log("*** CHANGING TO RECEIVE ROLE -- PRESS 'T' TO SWITCH BACK");
+                    rf24.startListening();
+                }
+            }
+        }
+        Debug.Log("Comm End");
+    }
+        */
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
         void read_register(byte reg, ref byte[] buf, byte len)
         {
+            if(reg >= 0x18 && reg <= 0x1B){
+                Debug.LogError("You are not allowed to read or Write to the Registers between 0x18 and 0x1B READ THE MANUAL!!!");
+                return;
+            }
             //beginTransaction();
             //status = _SPI.transfer(R_REGISTER | reg);
             //while (len--) {
@@ -601,6 +416,10 @@ public class RF24 : MonoBehaviour
         
         byte read_register(byte reg)
         {
+            if(reg >= 0x18 && reg <= 0x1B){
+                Debug.LogError("You are not allowed to read or Write to the Registers between 0x18 and 0x1B READ THE MANUAL!!!");
+                return 0;
+            }
             byte result;
             
             //beginTransaction();
@@ -618,6 +437,10 @@ public class RF24 : MonoBehaviour
         
         void write_register(byte reg, byte[] buf, byte len)
         {
+            if(reg >= 0x18 && reg <= 0x1B){
+                Debug.LogError("You are not allowed to read or Write to the Registers between 0x18 and 0x1B READ THE MANUAL!!!");
+                return;
+            }
             //beginTransaction();
             //status = _SPI.transfer(W_REGISTER | reg);
             //while (len--) {
@@ -637,6 +460,10 @@ public class RF24 : MonoBehaviour
         
         void write_register(byte reg, byte value, bool is_cmd_only)
         {
+            if(reg >= 0x18 && reg <= 0x1B){
+                Debug.LogError("You are not allowed to read or Write to the Registers between 0x18 and 0x1B READ THE MANUAL!!!");
+                return;
+            }
             if (is_cmd_only) {
                 //beginTransaction();
                 //status = _SPI.transfer(W_REGISTER | reg);
@@ -777,7 +604,7 @@ public class RF24 : MonoBehaviour
             return status;
         }
         
-        public RF24Com(uint _spi_speed)
+        public void setRF24(uint _spi_speed)
         {
             //: ce_pin(0xFFFF), csn_pin(0xFFFF), spi_speed(_spi_speed), payload_size(32), _is_p_variant(false), _is_p0_rx(false), addr_width(5), dynamic_payloads_enabled(true), csDelay(5)
             payload_size = 32;
@@ -789,7 +616,7 @@ public class RF24 : MonoBehaviour
             _init_obj();
         }
         
-        public RF24Com(ushort _cepin, ushort _cspin, uint _spi_speed)
+        public void setRF24(ushort _cepin, ushort _cspin, uint _spi_speed)
         {
             //: ce_pin(_cepin), csn_pin(_cspin), spi_speed(_spi_speed), payload_size(32), _is_p_variant(false), _is_p0_rx(false), addr_width(5), dynamic_payloads_enabled(true), csDelay(5)
             payload_size = 32;
@@ -1030,10 +857,6 @@ public class RF24 : MonoBehaviour
             //config_reg = (byte)(config_reg & ~(1 << PRIM_RX));
             config_reg = (byte)(config_reg & ~(1 << PRIM_RX));
             write_register(NRF_CONFIG, config_reg, false);
-            Debug.Log("stopListening");
-            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
-            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)(1 << child_pipe_enable[0])));
-            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)(read_register(EN_RXADDR) | (1 << child_pipe_enable[0]))));
             write_register(EN_RXADDR, (byte)(read_register(EN_RXADDR) | (1 << child_pipe_enable[0])), false); // Enable RX on pipe0
         }
         
@@ -1079,21 +902,27 @@ public class RF24 : MonoBehaviour
         //Start Writing
         Debug.Log("Start Fast Write");
         */
-            startFastWrite(buf, len, multicast, false);
+            startFastWrite(buf, len, multicast, true);
             
             //Debug.Log("Waiting for status");
             DateTime start = DateTime.Now;
-            while ((get_status() & ((1 << TX_DS) | (1 << MAX_RT))) == 0) {
+            while ((get_status() & ((1 << TX_DS) | (1 << MAX_RT))) != 0) {
+                Debug.Log("status: " + String.Format("{0:X2}", get_status()));
+                Debug.Log("TX_DS " + String.Format("{0:X2}", (1 << TX_DS)));
+                Debug.Log("MAX_RT " + String.Format("{0:X2}", (1 << MAX_RT)));
+                Debug.Log("regs " + String.Format("{0:X2}", ((1 << TX_DS) | (1 << MAX_RT))));
+                Debug.Log("res " + ((get_status() & ((1 << TX_DS) | (1 << MAX_RT)))));
                 if(new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds > 95){
                     Debug.Log("Aborting");
                     return false;
                 }
-                //Debug.Log("status: " + String.Format("{0:X2}", get_status()));
-                //Debug.Log("TX_DS " + String.Format("{0:X2}", (1 << TX_DS)));
-                //Debug.Log("MAX_RT " + String.Format("{0:X2}", (1 << MAX_RT)));
-                //Debug.Log("regs " + String.Format("{0:X2}", ((1 << TX_DS) | (1 << MAX_RT))));
             }
-            //Debug.Log("Received Status");
+            Debug.Log("Received Status");
+            Debug.Log("status: " + String.Format("{0:X2}", get_status()));
+            Debug.Log("TX_DS " + String.Format("{0:X2}", (1 << TX_DS)));
+            Debug.Log("MAX_RT " + String.Format("{0:X2}", (1 << MAX_RT)));
+            Debug.Log("regs " + String.Format("{0:X2}", ((1 << TX_DS) | (1 << MAX_RT))));
+            Debug.Log("res " + ((get_status() & ((1 << TX_DS) | (1 << MAX_RT)))));
             
             //ce(LOW);
             SetCEPin(0);
@@ -1140,7 +969,7 @@ public class RF24 : MonoBehaviour
             }
             
             //Start Writing
-            startFastWrite(buf, len, false, false); // Write the payload if a buffer is clear
+            startFastWrite(buf, len, false, true); // Write the payload if a buffer is clear
             
             return true; // Return 1 to indicate successful transmission
         }
@@ -1173,7 +1002,7 @@ public class RF24 : MonoBehaviour
                     // From the user perspective, if you get a 0, just keep trying to send the same payload
                 }
             }
-            startFastWrite(buf, len, multicast, false); // Start Writing
+            startFastWrite(buf, len, multicast, true); // Start Writing
             
             return true;
         }
@@ -1235,6 +1064,7 @@ public class RF24 : MonoBehaviour
         bool isFifo(bool about_tx, bool check_empty)
         {
             return (isFifo(about_tx) & (1 << (!check_empty ? 1 : 0))) == 1;
+    
         }
         
         
@@ -1400,7 +1230,6 @@ public class RF24 : MonoBehaviour
             // If this is pipe 0, cache the address.  This is needed because
             // openWritingPipe() will overwrite the pipe 0 address, so
             // startListening() will have to restore it.
-            Debug.Log("Addr: " + address);
             if (child == 0) {
                 //memcpy(pipe0_reading_address, &address, addr_width);
                 Array.Copy(BitConverter.GetBytes(address), BitConverter.GetBytes(address).Length - addr_width, pipe0_reading_address, 0, addr_width);
@@ -1421,9 +1250,12 @@ public class RF24 : MonoBehaviour
             if (child <= 5) {
                 // For pipes 2-5, only write the LSB
                 if (child < 2) {
+                    Debug.Log("Child " + child);
+                    Debug.Log("AddrCorrected " + addrCorrected.Length);
+                    Debug.Log("ChildPipe " + child_pipe.Length);
+                    Debug.Log("AddrWidth " + addr_width);
                     write_register((child_pipe[child]), addrCorrected, addr_width);
-                }
-                else {
+                }else {
                     write_register((child_pipe[child]), addrCorrected, 1);
                 }
                 
@@ -2097,6 +1929,6 @@ public class RF24 : MonoBehaviour
                 }
             }
         }
-    }
+    
 }
 
