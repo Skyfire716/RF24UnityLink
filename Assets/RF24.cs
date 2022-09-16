@@ -209,6 +209,7 @@ public class RF24 : MonoBehaviour
     }
     
     void commVoid(){
+        return;
         payload = 5.34f;
         while(running){
             if(rfSetup){
@@ -262,7 +263,6 @@ public class RF24 : MonoBehaviour
                 }
             }
         }
-        
         Debug.Log("Comm End");
     }
     
@@ -310,10 +310,13 @@ public class RF24 : MonoBehaviour
         
         // additional setup specific to the node's role
         if (role) {
+            Debug.Log("Call Stop Listening");
             rf24.stopListening();  // put radio in TX mode
         } else {
+            Debug.Log("Call Start Listening");
             rf24.startListening();  // put radio in RX mode
         }
+        /*
         if(commThread != null){
             commThread.Abort();
         }
@@ -321,6 +324,7 @@ public class RF24 : MonoBehaviour
         commThread = new Thread(commVoid);
         commThread.Start();
         Debug.Log("Started Comm Runner Thread");
+        */
         
     }
     //     
@@ -595,8 +599,6 @@ public class RF24 : MonoBehaviour
             //endTransaction();
         }
         
-        
-        
         byte read_register(byte reg)
         {
             byte result;
@@ -612,7 +614,6 @@ public class RF24 : MonoBehaviour
             //endTransaction();
             return t.Item2[0];
         }
-        
         
         
         void write_register(byte reg, byte[] buf, byte len)
@@ -982,30 +983,23 @@ public class RF24 : MonoBehaviour
         
         public void startListening()
         {
-            Debug.Log("Start Listening");
             config_reg |= (byte)(1 << PRIM_RX);
-            Debug.Log("Conf Reg: " + String.Format("{0:X}", config_reg));
             write_register(NRF_CONFIG, config_reg, false);
-            Debug.Log("Write NRF_STATUS " + String.Format("{0:X}", (byte)((1 << RX_DR) | (1 << TX_DS) | (1 << MAX_RT))));
             write_register(NRF_STATUS, (byte)((1 << RX_DR) | (1 << TX_DS) | (1 << MAX_RT)), false);
             //ce(HIGH);
-            Debug.Log("Set CE");
             SetCEPin(1);
-            Debug.Log("Is p0?");
             // Restore the pipe0 address, if exists
+            Debug.Log("StartListening");
+            Debug.Log("isP0RX " + _is_p0_rx);
             if (_is_p0_rx) {
-                Debug.Log("Write RX_ADDR_P0");
                 write_register(RX_ADDR_P0, pipe0_reading_address, addr_width);
             }else {
-                Debug.Log("Close Pipi");
                 closeReadingPipe(0);
             }
-            Debug.Log("Done Start Listening");
         }
         
         public void stopListening()
         {
-            Debug.Log("SetCEPin");
             //ce(LOW);
             SetCEPin(0);
             //delayMicroseconds(100);
@@ -1029,18 +1023,18 @@ public class RF24 : MonoBehaviour
         }
         }
         */  
-            Debug.Log("Done Waiting");
             if (ack_payloads_enabled) {
                 flush_tx();
             }
             
             //config_reg = (byte)(config_reg & ~(1 << PRIM_RX));
             config_reg = (byte)(config_reg & ~(1 << PRIM_RX));
-            Debug.Log("Conf Reg " + String.Format("{0:X}", config_reg));
             write_register(NRF_CONFIG, config_reg, false);
-            Debug.Log("WRite EN_RXADDR "  + (byte)(read_register(EN_RXADDR) | (1 << child_pipe_enable[0])));
+            Debug.Log("stopListening");
+            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
+            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)(1 << child_pipe_enable[0])));
+            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)(read_register(EN_RXADDR) | (1 << child_pipe_enable[0]))));
             write_register(EN_RXADDR, (byte)(read_register(EN_RXADDR) | (1 << child_pipe_enable[0])), false); // Enable RX on pipe0
-            Debug.Log("Done stopListening");
         }
         
         
@@ -1436,6 +1430,10 @@ public class RF24 : MonoBehaviour
                 // Note it would be more efficient to set all of the bits for all open
                 // pipes at once.  However, I thought it would make the calling code
                 // more simple to do it this way.
+                Debug.Log("OpenReadingPipe");
+                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
+                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)(1 << (child_pipe_enable[child]))));
+                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child]))))));
                 write_register(EN_RXADDR, (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child])))), false);
             }
         }
@@ -1478,6 +1476,10 @@ public class RF24 : MonoBehaviour
                 // Note it would be more efficient to set all of the bits for all open
                 // pipes at once.  However, I thought it would make the calling code
                 // more simple to do it this way.
+                Debug.Log("OpenReadingPipe 2");
+                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
+                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)(1 << (child_pipe_enable[child]))));
+                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child]))))));
                 write_register(EN_RXADDR, (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child])))), false);
             }
         }
@@ -1486,6 +1488,11 @@ public class RF24 : MonoBehaviour
         
         void closeReadingPipe(byte pipe)
         {
+            Debug.Log("CloseReadingPipe");
+            Debug.Log("Pipe " + pipe);
+            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
+            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)~(1 << (child_pipe_enable[pipe]))));
+            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)((read_register(EN_RXADDR) & ~(1 << (child_pipe_enable[pipe]))))));
             write_register(EN_RXADDR, (byte)((read_register(EN_RXADDR) & ~(1 << (child_pipe_enable[pipe])))), false);
             if (pipe == 0) {
                 // keep track of pipe 0's RX state to avoid null vs 0 in addr cache
@@ -1877,6 +1884,9 @@ public class RF24 : MonoBehaviour
         
         void toggleAllPipes(bool isEnabled)
         {
+            Debug.Log("ToggleAllPipes");
+            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
+            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)(isEnabled ? 0x3F : 0)));
             write_register(EN_RXADDR, (byte)(isEnabled ? 0x3F : 0), false);
         }
         
@@ -2058,7 +2068,6 @@ public class RF24 : MonoBehaviour
             byte autoAck = read_register(EN_AA);
             if (autoAck == 0x3F || autoAck == 0) {
                 // all pipes have the same configuration about auto-ack feature
-                Debug.Log("auto Ack " + autoAck);
                 Debug.Log(("Auto Acknowledgment\t" + rf24_feature_e_str_P[autoAck != 0 ? 1 : 0]));
             }
             else {
