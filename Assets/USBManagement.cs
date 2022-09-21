@@ -98,13 +98,9 @@ public class USBManagement : MonoBehaviour
             get_usb_devices(sb);
             Debug.Log("Devices? " + sb.ToString());
             devices = sb.ToString().Split('\n').Where(d => d.Contains(":")).ToArray();
-            /*
-            if(isDeviceConnectedCallback != null){
-                isDeviceConnectedCallback(Array.Exists(devices, d => d.Contains(String.Format("{0:X4}:{1:X4}", deviceID[0], deviceID[1]))));
-            }else{
-                Debug.Log("Device Callback is Null");
+            if(isDeviceConnectedCallback != null && !Array.Exists(devices, d => d.Contains(String.Format("{0:X4}:{1:X4}", deviceID[0], deviceID[1])))){
+                isDeviceConnectedCallback(false);
             }
-            */
         }else{
             devices = new String[0];
             isDeviceConnectedCallback(false);

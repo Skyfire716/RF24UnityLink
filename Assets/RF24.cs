@@ -810,23 +810,29 @@ public class RF24 : MonoBehaviour
         
         public void startListening()
         {
+            Debug.Log("Start Listeing");
             config_reg |= (byte)(1 << PRIM_RX);
             write_register(NRF_CONFIG, config_reg, false);
+            Debug.Log("Status " + String.Format("{0:X}", status));
             write_register(NRF_STATUS, (byte)((1 << RX_DR) | (1 << TX_DS) | (1 << MAX_RT)), false);
+            Debug.Log("Status " + String.Format("{0:X}", status));
             //ce(HIGH);
             SetCEPin(1);
             // Restore the pipe0 address, if exists
-            Debug.Log("StartListening");
             Debug.Log("isP0RX " + _is_p0_rx);
             if (_is_p0_rx) {
+                Debug.LogWarning("Listeing on readingAddress: " + pipe0_reading_address);
                 write_register(RX_ADDR_P0, pipe0_reading_address, addr_width);
             }else {
+                Debug.Log("Close Reading Pipe");
                 closeReadingPipe(0);
             }
+            Debug.Log("End startListening");
         }
         
         public void stopListening()
         {
+            Debug.Log("Stop Listeing");
             //ce(LOW);
             SetCEPin(0);
             //delayMicroseconds(100);
@@ -851,13 +857,17 @@ public class RF24 : MonoBehaviour
         }
         */  
             if (ack_payloads_enabled) {
+                Debug.Log("FlushTX");
                 flush_tx();
             }
             
             //config_reg = (byte)(config_reg & ~(1 << PRIM_RX));
             config_reg = (byte)(config_reg & ~(1 << PRIM_RX));
             write_register(NRF_CONFIG, config_reg, false);
+            Debug.Log("Status " + String.Format("{0:X}", status));
             write_register(EN_RXADDR, (byte)(read_register(EN_RXADDR) | (1 << child_pipe_enable[0])), false); // Enable RX on pipe0
+            Debug.Log("Status " + String.Format("{0:X}", status));
+            Debug.Log("End stopListening");
         }
         
         
@@ -1159,10 +1169,13 @@ public class RF24 : MonoBehaviour
         public bool available(ref byte pipe_num)
         {
             // get implied RX FIFO empty flag from status byte  
+            Debug.Log("available " + String.Format("{0:X}", get_status()));
             byte pipe = (byte)((get_status() >> RX_P_NO) & 0x07);
-            if (pipe > 5)
+            Debug.Log("Pipe " + String.Format("{0:X}", pipe));
+            if (pipe > 5){
+                Debug.Log("Pipe > 5");
                 return false;
-            
+            }
             // If the caller wants the pipe number, include that
             Debug.Log("Pipe Num " + pipe);
             pipe_num = pipe;
@@ -1199,6 +1212,7 @@ public class RF24 : MonoBehaviour
         
         void openWritingPipe(ulong value)
         {
+            Debug.Log("Empty openWritingPipe");
             // Note that AVR 8-bit uC's store this LSB first, and the NRF24L01(+)
             // expects it LSB first too, so we're good.
             
@@ -1210,6 +1224,7 @@ public class RF24 : MonoBehaviour
         
         public void openWritingPipe(byte[] address)
         {
+            Debug.Log("openWritingPipe");
             // Note that AVR 8-bit uC's store this LSB first, and the NRF24L01(+)
             // expects it LSB first too, so we're good.
             byte[] addrCorrected = new byte[addr_width];
@@ -1218,10 +1233,16 @@ public class RF24 : MonoBehaviour
             }else{
                 Array.Copy(address, addrCorrected, addr_width);
             }
+            for(int i = 0; i < addr_width; i++){
+                Debug.Log(", " + String.Format("{0:X}", addrCorrected[i]));
+            }
             byte[] txAddr = new byte[addr_width];
             Array.Copy(addrCorrected, txAddr, addr_width);
             write_register(RX_ADDR_P0, addrCorrected, addr_width);
+            Debug.Log("Status " + String.Format("{0:X}", status));
             write_register(TX_ADDR, txAddr, addr_width);
+            Debug.Log("Status " + String.Format("{0:X}", status));
+            Debug.Log("End OpenWRitingPipe");
         }
         
         public void openReadingPipe(byte child, ulong address)
@@ -1247,7 +1268,11 @@ public class RF24 : MonoBehaviour
             }else{
                 Array.Copy(BitConverter.GetBytes(address), addrCorrected, addr_width);
             }
+            for(int i = 0; i < addr_width; i++){
+                Debug.Log(", " + String.Format("{0:X}", addrCorrected[i]));
+            }
             if (child <= 5) {
+                Debug.Log("Child <= 5");
                 // For pipes 2-5, only write the LSB
                 if (child < 2) {
                     Debug.Log("Child " + child);
@@ -1255,19 +1280,20 @@ public class RF24 : MonoBehaviour
                     Debug.Log("ChildPipe " + child_pipe.Length);
                     Debug.Log("AddrWidth " + addr_width);
                     write_register((child_pipe[child]), addrCorrected, addr_width);
+                    Debug.Log("Status " + String.Format("{0:X}", status));
                 }else {
+                    Debug.Log("child >= 2");
                     write_register((child_pipe[child]), addrCorrected, 1);
+                    Debug.Log("Status " + String.Format("{0:X}", status));
                 }
                 
                 // Note it would be more efficient to set all of the bits for all open
                 // pipes at once.  However, I thought it would make the calling code
                 // more simple to do it this way.
-                Debug.Log("OpenReadingPipe");
-                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
-                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)(1 << (child_pipe_enable[child]))));
-                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child]))))));
                 write_register(EN_RXADDR, (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child])))), false);
+                Debug.Log("Status " + String.Format("{0:X}", status));
             }
+            Debug.Log("End OpenReadingPipe");
         }
         
         
@@ -1289,31 +1315,35 @@ public class RF24 : MonoBehaviour
         
         void openReadingPipe(byte child, byte[] address)
         {
+            Debug.Log("openReadingPipe");
             // If this is pipe 0, cache the address.  This is needed because
             // openWritingPipe() will overwrite the pipe 0 address, so
             // startListening() will have to restore it.
             if (child == 0) {
+                Debug.Log("child == 0");
                 //memcpy(pipe0_reading_address, address, addr_width);
                 _is_p0_rx = true;
             }
             if (child <= 5) {
+                Debug.Log("child <= 5");
                 // For pipes 2-5, only write the LSB
                 if (child < 2) {
+                    Debug.Log("child < 2");
                     write_register((child_pipe[child]), address, addr_width);
-                }
-                else {
+                    Debug.Log("Status " + String.Format("{0:X}", status));
+                }else {
+                    Debug.Log("Child >= 2");
                     write_register((child_pipe[child]), address, 1);
+                    Debug.Log("Status " + String.Format("{0:X}", status));
                 }
                 
                 // Note it would be more efficient to set all of the bits for all open
                 // pipes at once.  However, I thought it would make the calling code
                 // more simple to do it this way.
-                Debug.Log("OpenReadingPipe 2");
-                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
-                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)(1 << (child_pipe_enable[child]))));
-                Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child]))))));
                 write_register(EN_RXADDR, (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child])))), false);
+                Debug.Log("Status " + String.Format("{0:X}", status));
             }
+            Debug.Log("En dOpenreadingPipie");
         }
         
         

@@ -49,10 +49,11 @@ public class RF24Worker : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if((new TimeSpan(DateTime.Now.Ticks - start.Ticks)).TotalMilliseconds > 1000){
-            if(rfSetup){
-                start = DateTime.Now;
-                if (role) {
+        
+        if(rfSetup){
+            start = DateTime.Now;
+            if (role) {
+                if((new TimeSpan(DateTime.Now.Ticks - start.Ticks)).TotalMilliseconds > 1000){
                     // This device is a TX node
                     
                     Debug.LogWarning("Before Writing " + payload);
@@ -72,31 +73,32 @@ public class RF24Worker : MonoBehaviour
                     } else {
                         Debug.Log("Transmission failed or timed out");  // payload was not delivered
                     }
-                } else {
-                    // This device is a RX node
-                    
-                    byte pipe = 0;
-                    if (rf24.available(ref pipe)) {              // is there a payload? get the pipe number that recieved it
-                        byte bytes = rf24.getPayloadSize();  // get the size of the payload
-                        byte[] payloadBuf = BitConverter.GetBytes(payload);
-                        rf24.read(ref payloadBuf, bytes);             // fetch payload from FIFO
-                        payload = BitConverter.ToSingle(payloadBuf);
-                        Debug.Log("Received " + bytes +" bytes on pipe " + pipe + ": " +payload);  // print the payload's value
-                    }else{
-                        Debug.Log("No Receive");
-                    }
-                }  // role
-                if(toggle){
-                    if(role){
-                        rf24.startListening();
-                    }else{
-                        rf24.stopListening();
-                    }
-                    role = !role;
                 }
+            } else {
+                // This device is a RX node
+                
+                byte pipe = 0;
+                if (rf24.available(ref pipe)) {              // is there a payload? get the pipe number that recieved it
+                    byte bytes = rf24.getPayloadSize();  // get the size of the payload
+                    byte[] payloadBuf = BitConverter.GetBytes(payload);
+                    rf24.read(ref payloadBuf, bytes);             // fetch payload from FIFO
+                    payload = BitConverter.ToSingle(payloadBuf);
+                    Debug.Log("Received " + bytes +" bytes on pipe " + pipe + ": " +payload);  // print the payload's value
+                }else{
+                    Debug.Log("No Receive");
+                }
+            }  // role
+            if(toggle){
+                if(role){
+                    rf24.startListening();
+                }else{
+                    rf24.stopListening();
+                }
+                role = !role;
             }
         }
     }
+    
     
     public void setup(){
         rf24.setRF24(0);
@@ -125,8 +127,8 @@ public class RF24Worker : MonoBehaviour
         }
         rfSetup = true;
         /*
-         i f(com*mThread *!= null){
-         commThread.Abort();
+         *     i f(com*mThread *!= null){
+         *     commThread.Abort();
     }
     running = true;
     commThread = new Thread(commVoid);
