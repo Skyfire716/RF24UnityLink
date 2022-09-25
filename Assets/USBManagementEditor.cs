@@ -19,5 +19,8 @@ public class USBManagementEditor : Editor
         if(GUILayout.Button("Connect to Device")){
             usb.connectToCustomUSBDevice(usb.deviceID[0], usb.deviceID[1]);
         }
+        if(GUILayout.Button("Set BootMode")){
+            usb.bootMode();
+        }
     }
 }

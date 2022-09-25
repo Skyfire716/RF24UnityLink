@@ -48,6 +48,7 @@ public class USBManagement : MonoBehaviour
     protected readonly byte BYTEARRAYTRANSFERSINLGE = 0xBB;
     protected readonly byte SETCEPIN = 0xCC;
     protected readonly byte SETCSNPIN = 0xDD;
+    protected readonly byte USBRESET = 0xEE;
     
     protected bool running = true;
     
@@ -124,6 +125,16 @@ public class USBManagement : MonoBehaviour
         Debug.Log("Connected to Device? " + (ret == 0));
         isDeviceConnectedCallback(ret == 0);
         return ret == 0;
+    }
+    
+    public void bootMode(){
+        byte bufferLengths = 64;
+        byte[] inBuf = new byte[bufferLengths];
+        byte[] outBuf = new byte[bufferLengths];
+        outBuf[63] = USBRESET;
+        int bytesOut;
+        int bytesIn;
+        usbTransfer(outBuf, bufferLengths, out bytesOut, inBuf, bufferLengths, out bytesIn);
     }
     
     public void setCEPin(byte status){

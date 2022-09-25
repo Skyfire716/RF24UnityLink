@@ -406,11 +406,19 @@ public class RF24 : MonoBehaviour
             //    buf[i++] = SPItransfer(0xFF);
             //}
             
-            
+            String s = new String("");
+            foreach(byte b in buf){
+                s += String.Format("{0:X}", b);
+            }
+            Debug.Log("(Read Register Reg " + String.Format("{0:X}", reg) + " Buf: " + s);
             Tuple<byte, byte[]> t = SPIByteArrayTransfer((byte)(R_REGISTER | reg), Enumerable.Repeat((byte)0xFF, len).ToArray());
             status = t.Item1;
             buf = t.Item2;
-            
+            s = new String("");
+            foreach(byte b in buf){
+                s += String.Format("{0:X}", b);
+            }
+            Debug.Log("After Reg " + String.Format("{0:X}", reg) + " Buf: " + s + " Status " + String.Format("{0:X}", status) + " END READREG)");
             //endTransaction();
         }
         
@@ -421,7 +429,7 @@ public class RF24 : MonoBehaviour
                 return 0;
             }
             byte result;
-            
+            Debug.Log("(ReadRegister Reg: " + String.Format("{0:X}", reg));
             //beginTransaction();
             //status = _SPI.transfer(R_REGISTER | reg);
             //result = _SPI.transfer(0xff);
@@ -430,6 +438,7 @@ public class RF24 : MonoBehaviour
             //result = SPItransfer(0xFF);
             Tuple<byte, byte[]> t = SPIByteArrayTransfer((byte)(R_REGISTER | reg), Enumerable.Repeat((byte)0xFF, 1).ToArray());
             status = t.Item1;
+            Debug.Log("Result: " + String.Format("{0:X}", t.Item2[0]) + " END READ REGISTER)");
             //endTransaction();
             return t.Item2[0];
         }
@@ -451,8 +460,14 @@ public class RF24 : MonoBehaviour
             //while (len-- > 0) {
             //    SPItransfer(buf[i++]);
             //}
+            String s = new String("");
+            foreach(byte b in buf){
+                s += String.Format("{0:X}", b);
+            }
+            Debug.Log("(Write Register Reg: " + String.Format("{0:X}", reg) + " Buf: " + s);
             Tuple<byte, byte[]> t = SPIByteArrayTransfer((byte)(W_REGISTER | reg), buf);
             status = t.Item1;
+            Debug.Log("Status: " + String.Format("{0:X}", status) + " End Write Register)");
             //endTransaction();
         }
         
@@ -464,6 +479,7 @@ public class RF24 : MonoBehaviour
                 Debug.LogError("You are not allowed to read or Write to the Registers between 0x18 and 0x1B READ THE MANUAL!!!");
                 return;
             }
+            Debug.Log("(Write Register Reg: " + String.Format("{0:X}", reg) + " Value: " + String.Format("{0:X}", value) + " is_cmd_only " + is_cmd_only);
             if (is_cmd_only) {
                 //beginTransaction();
                 //status = _SPI.transfer(W_REGISTER | reg);
@@ -486,6 +502,7 @@ public class RF24 : MonoBehaviour
                 //Tuple<byte, byte[]> t = SPIByteArrayTransfer((byte)(reg), new byte[]{value});
                 status = t.Item1;
             }
+            Debug.Log(String.Format("{0:X}", status) + " END Write Register)");
         }
         
         
@@ -496,15 +513,14 @@ public class RF24 : MonoBehaviour
             
             byte[] current = buf;
             
-            byte blank_len = (data_len == 0) ? (byte)1 : (byte)0;
+            byte blank_len = ((~data_len) != 0) ? (byte)1 : (byte)0;
             if (!dynamic_payloads_enabled) {
                 data_len = (byte)Mathf.Min(data_len, payload_size);
                 blank_len = (byte)(payload_size - data_len);
-            }
-            else {
+            }else {
                 data_len = (byte)Mathf.Min(data_len, 32);
             }
-            
+            int size = data_len + blank_len;
             //printf("[Writing %u bytes %u blanks]",data_len,blank_len);
             
             //beginTransaction();
@@ -529,7 +545,18 @@ public class RF24 : MonoBehaviour
             byte[] outBuf = new byte[32];
             Array.Copy(current, outBuf, data_len);
             Array.Copy(Enumerable.Repeat((byte)0x00, blank_len).ToArray(), 0, outBuf, data_len, blank_len);
-            Tuple<byte, byte[]> t = SPIByteArrayTransfer(writeType, outBuf);
+            Debug.Log("WriteType: " + String.Format("{0:X}", writeType));
+            Debug.Log("Size: " + size);
+            byte[] dataOutBuf = new byte[size];
+            Array.Copy(outBuf, 0, dataOutBuf, 0, size);
+            String s = new String("");
+            foreach(byte b in dataOutBuf){
+                s += String.Format("{0:X}", b) + ", ";
+            }
+            Debug.Log("Outbuf: " + s);
+            Tuple<byte, byte[]> t = SPIByteArrayTransfer(writeType, dataOutBuf);
+            Debug.Log("Status: " + String.Format("{0:X}", t.Item1));
+            //Status 0xF estimated
             //endTransaction();
             status = t.Item1;
         }
@@ -734,23 +761,31 @@ public class RF24 : MonoBehaviour
             // Set 1500uS (minimum for 32B payload in ESB@250KBPS) timeouts, to make testing a little easier
             // WARNING: If this is ever lowered, either 250KBS mode with AA is broken or maximum packet
             // sizes must never be used. See datasheet for a more complete explanation.
+            // Debug.Log("SetRetries");
             setRetries(5, 15);
+            // Debug.Log("END SetRetries");
             
             // Then set the data rate to the slowest (and most reliable) speed supported by all
             // hardware. Since this value occupies the same register as the PA level value, set
             // the PA level to MAX
             //setRadiation(rf24_pa_dbm_e.RF24_PA_MAX, rf24_datarate_e.RF24_1MBPS); // LNA enabled by default
-            setRadiation(rf24_pa_dbm_e.RF24_PA_MAX, rf24_datarate_e.RF24_1MBPS); // LNA enabled by default
-            
+            // Debug.Log("SetDataRad");
+            //setRadiation(rf24_pa_dbm_e.RF24_PA_MAX, rf24_datarate_e.RF24_1MBPS); // LNA enabled by default
+            setDataRate(rf24_datarate_e.RF24_1MBPS);
+            // Debug.Log("END Set DataRate");
             // detect if is a plus variant & use old toggle features command accordingly
             byte before_toggle = read_register(FEATURE);
+            // Debug.Log("Toggle Feature");
             toggle_features();
+            // Debug.Log("END Toggle Feature");
             byte after_toggle = read_register(FEATURE);
             _is_p_variant = before_toggle == after_toggle;
             if (after_toggle == 1) {
                 if (_is_p_variant) {
                     // module did not experience power-on-reset (#401)
+                    // Debug.Log("Toggle Feature");
                     toggle_features();
+                    // Debug.Log("END Toggle Feature");
                 }
                 // allow use of multicast parameter and dynamic payloads by default
                 write_register(FEATURE, 0, false);
@@ -760,21 +795,30 @@ public class RF24 : MonoBehaviour
             dynamic_payloads_enabled = false;
             write_register(EN_AA, 0x3F, false);  // enable auto-ack on all pipes
             write_register(EN_RXADDR, 3, false); // only open RX pipes 0 & 1
+            // Debug.Log("SetPayloadSize");
             setPayloadSize(32);           // set static payload size to 32 (max) bytes by default
+            // Debug.Log("END SetPayloadSize");
+            // Debug.Log("setAddressWidth");
             setAddressWidth(5);           // set default address length to (max) 5 bytes
+            // Debug.Log("END setAddressWidth");
             
             // Set up default configuration.  Callers can always change it later.
             // This channel should be universally safe and not bleed over into adjacent
             // spectrum.
+            // Debug.Log("SetChannel");
             setChannel(76);
+            // Debug.Log("END SetChannel");
             
             // Reset current status
             // Notice reset and flush is the last thing we do
             write_register(NRF_STATUS, (byte)((1 << RX_DR) | (1 << TX_DS) | (1 << MAX_RT)), false);
             
             // Flush buffers
+            // Debug.Log("FLushRX");
             flush_rx();
+            // Debug.Log("END FlushRX \n FLushTX");
             flush_tx();
+            // Debug.Log("END FLushTX");
             
             // Clear CONFIG register:
             //      Reflect all IRQ events on IRQ pin
@@ -810,29 +854,29 @@ public class RF24 : MonoBehaviour
         
         public void startListening()
         {
-            Debug.Log("Start Listeing");
+            // Debug.Log("Start Listeing");
             config_reg |= (byte)(1 << PRIM_RX);
             write_register(NRF_CONFIG, config_reg, false);
-            Debug.Log("Status " + String.Format("{0:X}", status));
+            // Debug.Log("Status " + String.Format("{0:X}", status));
             write_register(NRF_STATUS, (byte)((1 << RX_DR) | (1 << TX_DS) | (1 << MAX_RT)), false);
-            Debug.Log("Status " + String.Format("{0:X}", status));
+            // Debug.Log("Status " + String.Format("{0:X}", status));
             //ce(HIGH);
             SetCEPin(1);
             // Restore the pipe0 address, if exists
-            Debug.Log("isP0RX " + _is_p0_rx);
+            // Debug.Log("isP0RX " + _is_p0_rx);
             if (_is_p0_rx) {
-                Debug.LogWarning("Listeing on readingAddress: " + pipe0_reading_address);
+                // Debug.LogWarning("Listeing on readingAddress: " + pipe0_reading_address);
                 write_register(RX_ADDR_P0, pipe0_reading_address, addr_width);
             }else {
-                Debug.Log("Close Reading Pipe");
+                // Debug.Log("Close Reading Pipe");
                 closeReadingPipe(0);
             }
-            Debug.Log("End startListening");
+            // Debug.Log("End startListening");
         }
         
         public void stopListening()
         {
-            Debug.Log("Stop Listeing");
+            // Debug.Log("Stop Listeing");
             //ce(LOW);
             SetCEPin(0);
             //delayMicroseconds(100);
@@ -857,17 +901,17 @@ public class RF24 : MonoBehaviour
         }
         */  
             if (ack_payloads_enabled) {
-                Debug.Log("FlushTX");
+                // Debug.Log("FlushTX");
                 flush_tx();
             }
             
             //config_reg = (byte)(config_reg & ~(1 << PRIM_RX));
-            config_reg = (byte)(config_reg & ~(1 << PRIM_RX));
+            config_reg = (byte)(config_reg & (~(1 << PRIM_RX)));
             write_register(NRF_CONFIG, config_reg, false);
-            Debug.Log("Status " + String.Format("{0:X}", status));
+            // Debug.Log("Status " + String.Format("{0:X}", status));
             write_register(EN_RXADDR, (byte)(read_register(EN_RXADDR) | (1 << child_pipe_enable[0])), false); // Enable RX on pipe0
-            Debug.Log("Status " + String.Format("{0:X}", status));
-            Debug.Log("End stopListening");
+            // Debug.Log("Status " + String.Format("{0:X}", status));
+            // Debug.Log("End stopListening");
         }
         
         
@@ -912,42 +956,45 @@ public class RF24 : MonoBehaviour
         //Start Writing
         Debug.Log("Start Fast Write");
         */
+            // Debug.Log("Write: ");
             startFastWrite(buf, len, multicast, true);
-            
-            //Debug.Log("Waiting for status");
+            // Debug.Log("EndStartFastWrite");
             DateTime start = DateTime.Now;
-            while ((get_status() & ((1 << TX_DS) | (1 << MAX_RT))) != 0) {
-                Debug.Log("status: " + String.Format("{0:X2}", get_status()));
-                Debug.Log("TX_DS " + String.Format("{0:X2}", (1 << TX_DS)));
-                Debug.Log("MAX_RT " + String.Format("{0:X2}", (1 << MAX_RT)));
-                Debug.Log("regs " + String.Format("{0:X2}", ((1 << TX_DS) | (1 << MAX_RT))));
-                Debug.Log("res " + ((get_status() & ((1 << TX_DS) | (1 << MAX_RT)))));
+            
+            while ((get_status() & ((1 << TX_DS) | (1 << MAX_RT))) == 0) {
+                // Debug.Log("status: " + String.Format("{0:X2}", get_status()));
+                // Debug.Log("TX_DS " + String.Format("{0:X2}", (1 << TX_DS)));
+                // Debug.Log("MAX_RT " + String.Format("{0:X2}", (1 << MAX_RT)));
+                // Debug.Log("regs " + String.Format("{0:X2}", ((1 << TX_DS) | (1 << MAX_RT))));
+                // Debug.Log("res " + ((get_status() & ((1 << TX_DS) | (1 << MAX_RT)))));
+                
                 if(new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds > 95){
-                    Debug.Log("Aborting");
-                    return false;
+                     Debug.Log("Aborting");                    
+                     return false;
                 }
             }
-            Debug.Log("Received Status");
-            Debug.Log("status: " + String.Format("{0:X2}", get_status()));
-            Debug.Log("TX_DS " + String.Format("{0:X2}", (1 << TX_DS)));
-            Debug.Log("MAX_RT " + String.Format("{0:X2}", (1 << MAX_RT)));
-            Debug.Log("regs " + String.Format("{0:X2}", ((1 << TX_DS) | (1 << MAX_RT))));
-            Debug.Log("res " + ((get_status() & ((1 << TX_DS) | (1 << MAX_RT)))));
+             // Debug.Log("Received Status");
+             // Debug.Log("status: " + String.Format("{0:X2}", get_status()));
+             // Debug.Log("TX_DS " + String.Format("{0:X2}", (1 << TX_DS)));
+             // Debug.Log("MAX_RT " + String.Format("{0:X2}", (1 << MAX_RT)));
+            // Debug.Log("regs " + String.Format("{0:X2}", ((1 << TX_DS) | (1 << MAX_RT))));
+            // Debug.Log("res " + ((get_status() & ((1 << TX_DS) | (1 << MAX_RT)))));
             
             //ce(LOW);
             SetCEPin(0);
-            //Debug.Log("NRF_STATUS");
+            // Debug.Log("NRF_STATUS");
             write_register(NRF_STATUS, (byte)((1 << RX_DR) | (1 << TX_DS) | (1 << MAX_RT)), false);
-            
+            // Debug.Log("Status " + String.Format("{0:X}", status));
+            // 0x2E expected FlushTX not expected
             //Max retries exceeded
-            if ((status & (1 << MAX_RT)) ==1) {
-                //Debug.Log("FlushTX");
+            if ((status & (1 << MAX_RT)) == (1 << MAX_RT)) {
+                // Debug.Log("FlushTX");
                 flush_tx(); // Only going to be 1 packet in the FIFO at a time using this method, so just flush
-                //Debug.Log("Write false");
+                // Debug.Log("End Write");
                 return false;
             }
             //TX OK 1 or 0
-            //Debug.Log("Write true");
+            // Debug.Log("End Write true");
             return true;
         }
         
@@ -1031,12 +1078,18 @@ public class RF24 : MonoBehaviour
         
         void startFastWrite(byte[] buf, byte len, bool multicast, bool startTx)
         { //TMRh20
-            
+             Debug.Log("StartFastWrite");
+             Debug.Log("Write Payload");
             write_payload(buf, len, multicast ? W_TX_PAYLOAD_NO_ACK : W_TX_PAYLOAD);
+            Debug.Log("End Write Payload");
+             Debug.Log("Status " + String.Format("{0:X}", status));
+            //Status 0xE + startTX expected
             if (startTx) {
                 //ce(HIGH);
+                 Debug.Log("StartTX");
                 SetCEPin(1);
             }
+             Debug.Log("End StartFastWriting");
         }
         
         
@@ -1144,7 +1197,7 @@ public class RF24 : MonoBehaviour
         
         
         
-        byte getDynamicPayloadSize()
+        public byte getDynamicPayloadSize()
         {
             byte result = read_register(R_RX_PL_WID);
             
@@ -1169,15 +1222,15 @@ public class RF24 : MonoBehaviour
         public bool available(ref byte pipe_num)
         {
             // get implied RX FIFO empty flag from status byte  
-            Debug.Log("available " + String.Format("{0:X}", get_status()));
+            // Debug.Log("available " + String.Format("{0:X}", get_status()));
             byte pipe = (byte)((get_status() >> RX_P_NO) & 0x07);
-            Debug.Log("Pipe " + String.Format("{0:X}", pipe));
+            //Debug.Log("Pipe " + String.Format("{0:X}", pipe));
             if (pipe > 5){
-                Debug.Log("Pipe > 5");
+                // Debug.Log("Pipe > 5");
                 return false;
             }
             // If the caller wants the pipe number, include that
-            Debug.Log("Pipe Num " + pipe);
+            // Debug.Log("Pipe Num " + pipe);
             pipe_num = pipe;
             return true;
         }
@@ -1224,7 +1277,7 @@ public class RF24 : MonoBehaviour
         
         public void openWritingPipe(byte[] address)
         {
-            Debug.Log("openWritingPipe");
+            // Debug.Log("openWritingPipe");
             // Note that AVR 8-bit uC's store this LSB first, and the NRF24L01(+)
             // expects it LSB first too, so we're good.
             byte[] addrCorrected = new byte[addr_width];
@@ -1234,20 +1287,20 @@ public class RF24 : MonoBehaviour
                 Array.Copy(address, addrCorrected, addr_width);
             }
             for(int i = 0; i < addr_width; i++){
-                Debug.Log(", " + String.Format("{0:X}", addrCorrected[i]));
+                // Debug.Log(", " + String.Format("{0:X}", addrCorrected[i]));
             }
             byte[] txAddr = new byte[addr_width];
             Array.Copy(addrCorrected, txAddr, addr_width);
             write_register(RX_ADDR_P0, addrCorrected, addr_width);
-            Debug.Log("Status " + String.Format("{0:X}", status));
+            // Debug.Log("Status " + String.Format("{0:X}", status));
             write_register(TX_ADDR, txAddr, addr_width);
-            Debug.Log("Status " + String.Format("{0:X}", status));
-            Debug.Log("End OpenWRitingPipe");
+            // Debug.Log("Status " + String.Format("{0:X}", status));
+            // Debug.Log("End OpenWRitingPipe");
         }
         
         public void openReadingPipe(byte child, ulong address)
         {
-            Debug.Log("OpenReadingPipe");
+            // Debug.Log("OpenReadingPipe");
             // If this is pipe 0, cache the address.  This is needed because
             // openWritingPipe() will overwrite the pipe 0 address, so
             // startListening() will have to restore it.
@@ -1269,31 +1322,31 @@ public class RF24 : MonoBehaviour
                 Array.Copy(BitConverter.GetBytes(address), addrCorrected, addr_width);
             }
             for(int i = 0; i < addr_width; i++){
-                Debug.Log(", " + String.Format("{0:X}", addrCorrected[i]));
+                // Debug.Log(", " + String.Format("{0:X}", addrCorrected[i]));
             }
             if (child <= 5) {
-                Debug.Log("Child <= 5");
+                // Debug.Log("Child <= 5");
                 // For pipes 2-5, only write the LSB
                 if (child < 2) {
-                    Debug.Log("Child " + child);
-                    Debug.Log("AddrCorrected " + addrCorrected.Length);
-                    Debug.Log("ChildPipe " + child_pipe.Length);
-                    Debug.Log("AddrWidth " + addr_width);
+                    // Debug.Log("Child " + child);
+                    // Debug.Log("AddrCorrected " + addrCorrected.Length);
+                    // Debug.Log("ChildPipe " + child_pipe.Length);
+                    // Debug.Log("AddrWidth " + addr_width);
                     write_register((child_pipe[child]), addrCorrected, addr_width);
-                    Debug.Log("Status " + String.Format("{0:X}", status));
+                    // Debug.Log("Status " + String.Format("{0:X}", status));
                 }else {
-                    Debug.Log("child >= 2");
+                    // Debug.Log("child >= 2");
                     write_register((child_pipe[child]), addrCorrected, 1);
-                    Debug.Log("Status " + String.Format("{0:X}", status));
+                    // Debug.Log("Status " + String.Format("{0:X}", status));
                 }
                 
                 // Note it would be more efficient to set all of the bits for all open
                 // pipes at once.  However, I thought it would make the calling code
                 // more simple to do it this way.
                 write_register(EN_RXADDR, (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child])))), false);
-                Debug.Log("Status " + String.Format("{0:X}", status));
+                // Debug.Log("Status " + String.Format("{0:X}", status));
             }
-            Debug.Log("End OpenReadingPipe");
+            // Debug.Log("End OpenReadingPipe");
         }
         
         
@@ -1315,46 +1368,46 @@ public class RF24 : MonoBehaviour
         
         void openReadingPipe(byte child, byte[] address)
         {
-            Debug.Log("openReadingPipe");
+            // Debug.Log("openReadingPipe");
             // If this is pipe 0, cache the address.  This is needed because
             // openWritingPipe() will overwrite the pipe 0 address, so
             // startListening() will have to restore it.
             if (child == 0) {
-                Debug.Log("child == 0");
+                // Debug.Log("child == 0");
                 //memcpy(pipe0_reading_address, address, addr_width);
                 _is_p0_rx = true;
             }
             if (child <= 5) {
-                Debug.Log("child <= 5");
+                // Debug.Log("child <= 5");
                 // For pipes 2-5, only write the LSB
                 if (child < 2) {
-                    Debug.Log("child < 2");
+                    // Debug.Log("child < 2");
                     write_register((child_pipe[child]), address, addr_width);
-                    Debug.Log("Status " + String.Format("{0:X}", status));
+                    // Debug.Log("Status " + String.Format("{0:X}", status));
                 }else {
-                    Debug.Log("Child >= 2");
+                    // Debug.Log("Child >= 2");
                     write_register((child_pipe[child]), address, 1);
-                    Debug.Log("Status " + String.Format("{0:X}", status));
+                    // Debug.Log("Status " + String.Format("{0:X}", status));
                 }
                 
                 // Note it would be more efficient to set all of the bits for all open
                 // pipes at once.  However, I thought it would make the calling code
                 // more simple to do it this way.
                 write_register(EN_RXADDR, (byte)((read_register(EN_RXADDR) | (1 << (child_pipe_enable[child])))), false);
-                Debug.Log("Status " + String.Format("{0:X}", status));
+                // Debug.Log("Status " + String.Format("{0:X}", status));
             }
-            Debug.Log("En dOpenreadingPipie");
+            // Debug.Log("En dOpenreadingPipie");
         }
         
         
         
         void closeReadingPipe(byte pipe)
         {
-            Debug.Log("CloseReadingPipe");
-            Debug.Log("Pipe " + pipe);
-            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
-            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)~(1 << (child_pipe_enable[pipe]))));
-            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)((read_register(EN_RXADDR) & ~(1 << (child_pipe_enable[pipe]))))));
+            // Debug.Log("CloseReadingPipe");
+            // Debug.Log("Pipe " + pipe);
+            // Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
+            // Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)~(1 << (child_pipe_enable[pipe]))));
+            // Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)((read_register(EN_RXADDR) & ~(1 << (child_pipe_enable[pipe]))))));
             write_register(EN_RXADDR, (byte)((read_register(EN_RXADDR) & ~(1 << (child_pipe_enable[pipe])))), false);
             if (pipe == 0) {
                 // keep track of pipe 0's RX state to avoid null vs 0 in addr cache
@@ -1379,7 +1432,7 @@ public class RF24 : MonoBehaviour
         
         
         
-        void enableDynamicPayloads()
+        public void enableDynamicPayloads()
         {
             // Enable dynamic payload throughout the system
             
@@ -1398,7 +1451,7 @@ public class RF24 : MonoBehaviour
         
         
         
-        void disableDynamicPayloads()
+        public void disableDynamicPayloads()
         {
             // Disables dynamic payload throughout the system.  Also disables Ack Payloads
             
@@ -1417,7 +1470,7 @@ public class RF24 : MonoBehaviour
         
         
         
-        void enableAckPayload()
+        public void enableAckPayload()
         {
             // enable ack payloads and dynamic payload features
             
@@ -1433,7 +1486,7 @@ public class RF24 : MonoBehaviour
         
         
         
-        void disableAckPayload()
+        public void disableAckPayload()
         {
             // disable ack payloads (leave dynamic payload features as is)
             if (ack_payloads_enabled) {
@@ -1457,7 +1510,7 @@ public class RF24 : MonoBehaviour
         
         
         
-        bool writeAckPayload(byte pipe, byte[] buf, byte len)
+        public bool writeAckPayload(byte pipe, byte[] buf, byte len)
         {
             if (ack_payloads_enabled) {
                 byte[] current = buf;
@@ -1578,19 +1631,22 @@ public class RF24 : MonoBehaviour
         
         bool setDataRate(rf24_datarate_e speed)
         {
+            // Debug.Log("(SetDataRate");
             bool result = false;
             byte setup = read_register(RF_SETUP);
-            
+            // Debug.Log("SetupFrom Chip " + String.Format("{0:X}", setup));
             // HIGH and LOW '00' is 1Mbs - our default
             setup = (byte)(setup & ~((1 << RF_DR_LOW) | (1 << RF_DR_HIGH)));
+            // Debug.Log("Setup LOW HIGH " + String.Format("{0:X}", setup));
             setup |= (byte)_data_rate_reg_value(speed);
-            
+            // Debug.Log("Setup OR DataRate " + String.Format("{0:X}", setup));
             write_register(RF_SETUP, setup, false);
             
             // Verify our result
             if (read_register(RF_SETUP) == setup) {
                 result = true;
             }
+            // Debug.Log(" Result " + result + " END SetDataRate)");
             return result;
         }
         
@@ -1668,7 +1724,9 @@ public class RF24 : MonoBehaviour
         
         void setRetries(byte delay, byte count)
         {
+            // Debug.Log("(SetRetries " + String.Format("{0:X}", (byte)(Mathf.Min(15, delay) << ARD | Mathf.Min(15, count))));
             write_register(SETUP_RETR, (byte)(Mathf.Min(15, delay) << ARD | Mathf.Min(15, count)), false);
+            // Debug.Log("End Set Retries)");
         }
         
         
@@ -1746,9 +1804,9 @@ public class RF24 : MonoBehaviour
         
         void toggleAllPipes(bool isEnabled)
         {
-            Debug.Log("ToggleAllPipes");
-            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
-            Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)(isEnabled ? 0x3F : 0)));
+            // Debug.Log("ToggleAllPipes");
+            // Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}",  (byte)read_register(EN_RXADDR)));
+            // Debug.Log("Write EN_RXADDR " + String.Format("{0:X2}", (byte)(isEnabled ? 0x3F : 0)));
             write_register(EN_RXADDR, (byte)(isEnabled ? 0x3F : 0), false);
         }
         
@@ -1757,6 +1815,14 @@ public class RF24 : MonoBehaviour
         byte _data_rate_reg_value(rf24_datarate_e speed)
         {
             // HIGH and LOW '00' is 1Mbs - our default
+            switch(speed){
+                case rf24_datarate_e.RF24_1MBPS:
+                    return 0;
+                case rf24_datarate_e.RF24_2MBPS:
+                    return 1;
+                case rf24_datarate_e.RF24_250KBPS:
+                    return 2;
+            }
             return 0;
         }
         
