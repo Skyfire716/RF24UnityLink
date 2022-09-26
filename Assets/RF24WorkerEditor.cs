@@ -13,15 +13,8 @@ public class RF24WorkerEditor : Editor
         DrawDefaultInspector();
 
         RF24Worker myrf24 = (RF24Worker)target;
-        if(GUILayout.Button("Setup"))
-        {
+        if(GUILayout.Button("Setup")){
             myrf24.setup();
-        }
-        if(GUILayout.Button("PrintPretty")){
-            myrf24.printPretty();
-        }
-        if(GUILayout.Button("Toggle")){
-            myrf24.Trigtoggle();
         }
     }
 }

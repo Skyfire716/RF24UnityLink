@@ -14,7 +14,7 @@ public class RF24Worker : MonoBehaviour
     private RF24 rf24;
     private USBManagement usbManagement;
     private bool isRP2040;
-    
+    public Transform transform;
     
     
     byte[][] address = new byte[][]{new byte[]{0x00, 0x00, 0x00, 0x31, 0x4E, 0x6F, 0x64, 0x65}, new byte[]{0x00, 0x00, 0x00, 0x32, 0x4E, 0x6F, 0x64, 0x65}};
@@ -33,9 +33,8 @@ public class RF24Worker : MonoBehaviour
     // on every successful transmission
     float payload = 0.0f;
     bool rfSetup = false;
-    bool toggle = false;
-    float start, timer;
-    
+    byte[] recvPayload = new byte[8];
+    byte[] sentPayload = new byte[7];
     
     // Start is called before the first frame update
     void Start()
@@ -43,60 +42,35 @@ public class RF24Worker : MonoBehaviour
         usbManagement = gameObject.GetComponent<USBManagement>();
         rf24 = gameObject.GetComponent<RF24>();
         usbManagement.isDeviceConnectedCallback += new USBManagement.IsDeviceConnected(isConnectedToRP2040);
-        start = Time.unscaledTime;
-        timer = 2;
     }
     
     // Update is called once per frame
     void Update()
     {
         if(rfSetup){
-            if (role) {
-                // Debug.Log("Time " + Time.unscaledTime);
-                // Debug.Log("Time " + (Time.unscaledTime - start));
-                if(timer <= 0){
-                    // This device is a TX node
-                    float start = Time.unscaledTime;
-                    Debug.Log("(Write");
-                    bool report = rf24.write(BitConverter.GetBytes(payload), 4);  // transmit & save the report
-                    Debug.Log(" END Write)");
-                    float end = Time.unscaledTime;
-                    if (report) {
-                        Debug.Log("Transmission successful! ");
-                        Debug.Log("Transmission successful! ");  // payload was delivered
-                        Debug.Log("Time to transmit = " + (end - start) + " us. Sent: " + payload);  // print payload sent
-                        payload += 0.01f;          // increment float payload
-                    } else {
-                        Debug.Log("Transmission failed or timed out");  // payload was not delivered
-                    }
-                    start = Time.unscaledTime;
-                    timer = 2;
+            // This device is a RX node
+            byte pipe = 0;
+            if (rf24.available(ref pipe)) {              // is there a payload? get the pipe number that recieved it
+                byte bytes = rf24.getDynamicPayloadSize(); // get the size of the payload
+                rf24.read(ref recvPayload, bytes);             // fetch payload from FIFO
+                String s = new String("");
+                foreach(byte b in recvPayload){
+                    s += String.Format("{0:X}", b);
                 }
-            } else {
-                // This device is a RX node
-                
-                byte pipe = 0;
-                if (rf24.available(ref pipe)) {              // is there a payload? get the pipe number that recieved it
-                    byte bytes = rf24.getPayloadSize();  // get the size of the payload
-                    byte[] payloadBuf = BitConverter.GetBytes(payload);
-                    rf24.read(ref payloadBuf, bytes);             // fetch payload from FIFO
-                    payload = BitConverter.ToSingle(payloadBuf);
-                    Debug.Log("Received " + bytes +" bytes on pipe " + pipe + ": " +payload);  // print the payload's value
-                }
-            }  // role
-            if(toggle){
-                toggle = false;
-                if(role){
-                    role = false;
-                    rf24.startListening();
-                }else{
-                    role = true;
-                    rf24.stopListening();
-                }
-                Debug.Log("TOGGLE");
+                Debug.Log("Received: " + s + " on Pipe " + pipe);
+                UInt16 x = BitConverter.ToUInt16(recvPayload, 0);
+                UInt16 y = BitConverter.ToUInt16(recvPayload, 2);
+                UInt16 z = BitConverter.ToUInt16(recvPayload, 4);
+                UInt16 w = BitConverter.ToUInt16(recvPayload, 6);
+                float xf = Mathf.HalfToFloat(x);
+                float yf = Mathf.HalfToFloat(y);
+                float zf = Mathf.HalfToFloat(z);
+                float wf = Mathf.HalfToFloat(w);
+                Quaternion rotation = new Quaternion(xf,  yf,  zf,  wf);
+                transform.rotation = rotation * Quaternion.Euler(90, 0, 0);
+                rf24.writeAckPayload(1, sentPayload, 7);
             }
         }
-        timer -= Time.deltaTime;
     }
     
     
@@ -105,52 +79,27 @@ public class RF24Worker : MonoBehaviour
         rf24.SPIByteArrayTransfer += new RF24.SPITransferByteArraysCallbackHandler(usbManagement.transferByteArrays);
         rf24.SetCEPin += new RF24.SetPin(usbManagement.setCEPin);
         rf24.SetCSNPin += new RF24.SetPin(usbManagement.setCSNPin);
-        Debug.Log("(Begin ");
         rf24.begin();
-        Debug.Log(" END BEGIN)");
         Debug.Log("Is Chip Connected? " + rf24.isChipConnected());
-        Debug.Log("(SetPALevel ");
         rf24.setPALevel(RF24.rf24_pa_dbm_e.RF24_PA_LOW, true);  // RF24_PA_MAX is default.
-        Debug.Log(" End setPaLvel)");
         // save on transmission time by setting the radio to only transmit the
         // number of bytes we need to transmit a float
-        Debug.Log("(SetPayload ");
-        rf24.setPayloadSize(4);  // float datatype occupies 4 bytes
-        Debug.Log(" END SETPAYLOAD)");
-        //rf24.enableDynamicPayloads();
-        //rf24.enableAckPayload();
+        rf24.enableDynamicPayloads();
+        rf24.enableAckPayload();
         
         // set the TX address of the RX node into the TX pipe
-        Debug.Log("(OpenWritingPipe");
         rf24.openWritingPipe(address[radioNumber ? 0 : 1]);  // always uses pipe 0
-        Debug.Log(" End OpenWritingPipe)");
         
         // set the RX address of the TX node into a RX pipe
-        Debug.Log("(OpenReadingPipe");
         rf24.openReadingPipe(1, BitConverter.ToUInt64(address[!radioNumber ? 0 : 1], 0));  // using pipe 1
-        Debug.Log(" END OpenReadingPipe)");
         
         // additional setup specific to the node's role
-        if (role) {
-            Debug.Log("(StopListening ");
-            rf24.stopListening();  // put radio in TX mode
-            Debug.Log(" END StopListening)");
-        } else {
-            Debug.Log("(StartListening ");
-            rf24.startListening();  // put radio in RX mode
-            Debug.Log(" END StartListening)");
-        }
+        Debug.Log("WriteAckResult: " + rf24.writeAckPayload(1, sentPayload, 7));
+        rf24.startListening();  // put radio in RX mode
         rfSetup = true;
-        /*
-         *     i f(com*mThread *!= null){
-         *     commThread.Abort();
-    }
-    running = true;
-    commThread = new Thread(commVoid);
-    commThread.Start();
-    Debug.Log("Started Comm Runner Thread");
-    */
         Debug.Log("END SETUP");
+        // rf24.printDetails();
+        // rf24.printPretty();
     }
     
     public void isConnectedToRP2040(bool isConnected){
@@ -159,14 +108,5 @@ public class RF24Worker : MonoBehaviour
         if(!isConnected){
             rfSetup = false;
         }
-    }
-    
-    public void printPretty(){
-        rf24.printDetails();
-        rf24.printPretty();
-    }
-    
-    public void Trigtoggle(){
-        toggle = true;
     }
 }

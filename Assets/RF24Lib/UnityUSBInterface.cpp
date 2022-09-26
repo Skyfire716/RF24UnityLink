@@ -106,6 +106,7 @@ extern "C" int connectToUSBDecive(uint16_t idVendor, uint16_t idProduct){
                         if((r = libusb_open(dev, &dev_handle)) == 0){
                             if((r = libusb_claim_interface(dev_handle, 0)) == 0){
                                 printf("Opened the dev handle\n");
+                                return 0;
                             }else{
                                 printf("Claim Interface Error %s\n", libusb_error_name(r));
                             }
@@ -122,7 +123,7 @@ extern "C" int connectToUSBDecive(uint16_t idVendor, uint16_t idProduct){
             printf("Device Descriptor Error %s\n", libusb_error_name(r));
         }
     }
-    return r;
+    return -1;
 }
 
 extern "C" void get_usb_devices(char *out){
