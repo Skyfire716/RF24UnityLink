@@ -16,5 +16,14 @@ public class RF24WorkerEditor : Editor
         if(GUILayout.Button("Setup")){
             myrf24.setup();
         }
+        if(GUILayout.Button("Up Solenoid")){
+            myrf24.triggerSolenoidUp();
+        }
+        if(GUILayout.Button("Down Solenoid")){
+            myrf24.triggerSolenoidDown();
+        }
+        if(GUILayout.Button("Boost")){
+            
+        }
     }
 }

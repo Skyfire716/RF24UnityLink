@@ -14,8 +14,13 @@ public class RF24Worker : MonoBehaviour
     private RF24 rf24;
     private USBManagement usbManagement;
     private bool isRP2040;
-    public Transform transform;
-    
+    private Transform transfom;
+    protected readonly byte SOLENOID_UP = 0x01;
+    protected readonly byte SOLENOID_DOWN = 0x02;
+    protected readonly byte UPDATE = 0x04;
+    private bool isSolenoidUp;
+    private bool isSolenoidDown;
+    private bool isBoost;
     
     byte[][] address = new byte[][]{new byte[]{0x00, 0x00, 0x00, 0x31, 0x4E, 0x6F, 0x64, 0x65}, new byte[]{0x00, 0x00, 0x00, 0x32, 0x4E, 0x6F, 0x64, 0x65}};
     // It is very helpful to think of an address as a path instead of as
@@ -40,6 +45,7 @@ public class RF24Worker : MonoBehaviour
     void Start()
     {
         usbManagement = gameObject.GetComponent<USBManagement>();
+        transfom = gameObject.GetComponent<Transform>();
         rf24 = gameObject.GetComponent<RF24>();
         usbManagement.isDeviceConnectedCallback += new USBManagement.IsDeviceConnected(isConnectedToRP2040);
     }
@@ -67,8 +73,21 @@ public class RF24Worker : MonoBehaviour
                 float zf = Mathf.HalfToFloat(z);
                 float wf = Mathf.HalfToFloat(w);
                 Quaternion rotation = new Quaternion(xf,  yf,  zf,  wf);
-                transform.rotation = rotation * Quaternion.Euler(90, 0, 0);
+                //transfom.rotation = rotation * Quaternion.Euler(90, 0, 0);
+                transfom.rotation = Quaternion.identity * Quaternion.AngleAxis(rotation.eulerAngles.z, Vector3.up) * Quaternion.AngleAxis(rotation.eulerAngles.x, -Vector3.forward) * Quaternion.AngleAxis(rotation.eulerAngles.y, Vector3.right);
+                sentPayload[6] = (byte)((isSolenoidUp ? SOLENOID_UP : 0) | (isSolenoidDown ? SOLENOID_DOWN : 0) | (isBoost || isSolenoidDown || isSolenoidUp ? UPDATE : 0));
+                Debug.Log("AckPayload" + String.Format("{0:X}", sentPayload[6]));
                 rf24.writeAckPayload(1, sentPayload, 7);
+                sentPayload[0] = 0;
+                sentPayload[1] = 0;
+                sentPayload[2] = 0;
+                sentPayload[3] = 0;
+                sentPayload[4] = 0;
+                sentPayload[5] = 0;
+                sentPayload[6] = 0;
+                isBoost = false;
+                isSolenoidDown = false;
+                isSolenoidUp = false;
             }
         }
     }
@@ -108,5 +127,15 @@ public class RF24Worker : MonoBehaviour
         if(!isConnected){
             rfSetup = false;
         }
+    }
+    
+    public void triggerSolenoidDown(){
+        isSolenoidDown = true;
+        Debug.Log("Triggered SolenoidDown");
+    }
+    
+    public void triggerSolenoidUp(){
+        isSolenoidUp = true;
+        Debug.Log("Triggered SolenoidUp");
     }
 }
