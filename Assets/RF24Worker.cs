@@ -3,6 +3,7 @@ using System.Text;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Threading;
 using UnityEngine;
@@ -15,13 +16,21 @@ public class RF24Worker : MonoBehaviour
     private USBManagement usbManagement;
     private bool isRP2040;
     private Transform transfom;
+    public Transform DroneCenterTrans;
     protected readonly byte SOLENOID_UP = 0x01;
     protected readonly byte SOLENOID_DOWN = 0x02;
     protected readonly byte UPDATE = 0x04;
     private bool isSolenoidUp;
     private bool isSolenoidDown;
-    private bool isBoost;
+    private bool isBoost;   
+    public bool TriggerUpOnCollision = true;
+    public bool TriggerDownOnCollision = true;
+    public bool TriggerBoostCollision = true;
+    private ConcurrentQueue<int> triggerEvents = new ConcurrentQueue<int>();
+    private Vector3 collisionImpulseVector;
     
+    [Range(1, 100)]
+    public int MaxThrottle = 10;
     byte[][] address = new byte[][]{new byte[]{0x00, 0x00, 0x00, 0x31, 0x4E, 0x6F, 0x64, 0x65}, new byte[]{0x00, 0x00, 0x00, 0x32, 0x4E, 0x6F, 0x64, 0x65}};
     // It is very helpful to think of an address as a path instead of as
     // an identifying device destination
@@ -72,23 +81,69 @@ public class RF24Worker : MonoBehaviour
                 float yf = Mathf.HalfToFloat(y);
                 float zf = Mathf.HalfToFloat(z);
                 float wf = Mathf.HalfToFloat(w);
-                Quaternion rotation = new Quaternion(xf,  yf,  zf,  wf);
-                //transfom.rotation = rotation * Quaternion.Euler(90, 0, 0);
-                transfom.rotation = Quaternion.identity * Quaternion.AngleAxis(rotation.eulerAngles.z, Vector3.up) * Quaternion.AngleAxis(rotation.eulerAngles.x, -Vector3.forward) * Quaternion.AngleAxis(rotation.eulerAngles.y, Vector3.right);
+                Quaternion rotation = new Quaternion(xf,  -zf,  yf,  wf);
+                // transfom.rotation = rotation;
+                transfom.rotation = rotation * Quaternion.Euler(-90, 0, 0);
+                // transfom.rotation = Quaternion.identity * Quaternion.AngleAxis(rotation.eulerAngles.z, Vector3.up) * Quaternion.AngleAxis(rotation.eulerAngles.x, -Vector3.forward) * Quaternion.AngleAxis(rotation.eulerAngles.y, Vector3.right);
+                while(!triggerEvents.IsEmpty){
+                    int value = 3;
+                    if(triggerEvents.TryDequeue(out value)){
+                        switch(value){
+                            case 0:
+                                isSolenoidDown = true;
+                                break;
+                            case 1:
+                                isSolenoidUp = true;
+                                break;
+                            case 2:
+                                isBoost = true;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+                collisionImpulseVector = collisionImpulseVector.normalized * MaxThrottle;
+                Array.Copy(BitConverter.GetBytes((short)Mathf.Ceil(collisionImpulseVector.x)), 0, sentPayload, 0, 2);
+                Array.Copy(BitConverter.GetBytes((short)Mathf.Ceil(collisionImpulseVector.y)), 0, sentPayload, 2, 2);
+                Array.Copy(BitConverter.GetBytes((short)Mathf.Ceil(collisionImpulseVector.z)), 0, sentPayload, 4, 2);
                 sentPayload[6] = (byte)((isSolenoidUp ? SOLENOID_UP : 0) | (isSolenoidDown ? SOLENOID_DOWN : 0) | (isBoost || isSolenoidDown || isSolenoidUp ? UPDATE : 0));
                 Debug.Log("AckPayload" + String.Format("{0:X}", sentPayload[6]));
-                rf24.writeAckPayload(1, sentPayload, 7);
-                sentPayload[0] = 0;
-                sentPayload[1] = 0;
-                sentPayload[2] = 0;
-                sentPayload[3] = 0;
-                sentPayload[4] = 0;
-                sentPayload[5] = 0;
-                sentPayload[6] = 0;
-                isBoost = false;
-                isSolenoidDown = false;
-                isSolenoidUp = false;
+                if(rf24.writeAckPayload(1, sentPayload, 7)){
+                    sentPayload[0] = 0;
+                    sentPayload[1] = 0;
+                    sentPayload[2] = 0;
+                    sentPayload[3] = 0;
+                    sentPayload[4] = 0;
+                    sentPayload[5] = 0;
+                    sentPayload[6] = 0;
+                    isBoost = false;
+                    isSolenoidDown = false;
+                    isSolenoidUp = false;
+                    collisionImpulseVector = Vector3.zero;
+                }else{
+                    Debug.LogError("Couldn't send AckPayload");
+                }
             }
+        }
+    }
+    
+    void OnCollisionEnter(Collision collision){
+        Rigidbody rb = collision.gameObject.GetComponent<Rigidbody>();
+        // rb.Sleep();
+        Vector3 droneCenter = DroneCenterTrans.position;
+        Debug.DrawLine(droneCenter, droneCenter - collision.impulse, Color.red, 2.5f);
+        // Gizmos.DrawRay(droneCenter, -collision.impulse);
+        Debug.LogError("Collision: " + collision.impulse);
+        collisionImpulseVector = -collision.impulse;
+        if(TriggerDownOnCollision){
+            triggerEvents.Enqueue(0);
+        }
+        if(TriggerUpOnCollision){
+            triggerEvents.Enqueue(1);
+        }
+        if(TriggerBoostCollision){
+            triggerEvents.Enqueue(2);
         }
     }
     
@@ -130,12 +185,20 @@ public class RF24Worker : MonoBehaviour
     }
     
     public void triggerSolenoidDown(){
-        isSolenoidDown = true;
+        // isSolenoidDown = true;
+        triggerEvents.Enqueue(0);
         Debug.Log("Triggered SolenoidDown");
     }
     
     public void triggerSolenoidUp(){
-        isSolenoidUp = true;
+        // isSolenoidUp = true;
+        triggerEvents.Enqueue(1);
         Debug.Log("Triggered SolenoidUp");
+    }
+    
+    public void boost(){
+        // isBoost = true;
+        triggerEvents.Enqueue(2);
+        Debug.Log("Boost");
     }
 }

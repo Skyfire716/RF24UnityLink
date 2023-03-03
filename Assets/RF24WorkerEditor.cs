@@ -23,7 +23,7 @@ public class RF24WorkerEditor : Editor
             myrf24.triggerSolenoidDown();
         }
         if(GUILayout.Button("Boost")){
-            
+            myrf24.boost();
         }
     }
 }

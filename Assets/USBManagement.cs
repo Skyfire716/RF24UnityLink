@@ -54,7 +54,7 @@ public class USBManagement : MonoBehaviour
     
     private bool USBServiceRunning = false;
     
-    public ushort[] deviceID = new ushort[]{0x0000, 0x0001};
+    public ushort[] deviceID = new ushort[]{0xc0ff, 0xaffe};
     
     // Start is called before the first frame update
     void Start()
