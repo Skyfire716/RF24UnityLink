@@ -54,7 +54,7 @@ public class USBManagement : MonoBehaviour
     
     private bool USBServiceRunning = false;
     
-    public ushort[] deviceID = new ushort[]{0xc0ff, 0xaffe};
+    public ushort[] deviceID = new ushort[]{0xC0FF, 0xAFFE};
     
     // Start is called before the first frame update
     void Start()
@@ -121,8 +121,15 @@ public class USBManagement : MonoBehaviour
     }
     
     public bool connectToCustomUSBDevice(ushort idVendor, ushort idProduct){
+        Debug.Log("Try to connect to: " + idVendor + " prodId " + idProduct);
         int ret = connectToUSBDecive(idVendor, idProduct);
         Debug.Log("Connected to Device? " + (ret == 0));
+        if(ret != 0){
+            Debug.LogError("Something went wrong connecting the device!");
+            if(ret == -3){
+                Debug.LogError("Check Permissions for Device!");
+            }
+        }
         isDeviceConnectedCallback(ret == 0);
         return ret == 0;
     }

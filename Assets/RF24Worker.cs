@@ -155,6 +155,9 @@ public class RF24Worker : MonoBehaviour
         rf24.SetCSNPin += new RF24.SetPin(usbManagement.setCSNPin);
         rf24.begin();
         Debug.Log("Is Chip Connected? " + rf24.isChipConnected());
+        if(!rf24.isChipConnected()){
+            Debug.LogError("No Chip connected!");
+        }
         rf24.setPALevel(RF24.rf24_pa_dbm_e.RF24_PA_LOW, true);  // RF24_PA_MAX is default.
         // save on transmission time by setting the radio to only transmit the
         // number of bytes we need to transmit a float

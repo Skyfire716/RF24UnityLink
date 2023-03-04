@@ -362,7 +362,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   devices: []
-  deviceID: 00000100
+  deviceID: ffc0feaf
 --- !u!65 &536203057
 BoxCollider:
   m_ObjectHideFlags: 0
